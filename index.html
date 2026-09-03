@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flippin' Waffles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="ticket" class="paper hidden"></div>
+  <div id="stats" class="paper hidden"></div>
+  <div id="compass" class="hidden"><div class="arrow">➜</div><div class="label"></div></div>
+  <div id="timer" class="hidden"><div class="bar"><div class="fill"></div></div><div class="text"></div></div>
+  <div id="meter" class="hidden"><div class="title"></div><div class="bar"><div class="zone"></div><div class="fill"></div><div class="needle"></div></div><div class="sub"></div></div>
+  <div id="waffles" class="hidden"></div>
+  <div id="drift" class="hidden"><div class="speed"></div><div class="charge"><i></i><i></i><i></i></div><div class="tricks"></div></div>
+  <div id="tooltip" class="hidden"></div>
+  <div id="popups"></div>
+  <div id="hint" class="hidden"></div>
+  <div id="panel" class="hidden"><div class="paper inner"></div></div>
+  <div id="title" class="hidden">
+    <div class="logo"><span class="w1">FLIPPIN'</span><span class="w2">WAFFLES</span></div>
+    <div class="tag">a cozy duck delivery adventure in Yosemitea National Park</div>
+    <button id="start" class="btn big">Start Flippin'</button>
+    <div class="controls">
+      <div><b>Kitchen</b> mouse · click ingredients · hold to whisk · Space = flip</div>
+      <div><b>Scooter</b> WASD / arrows · Space = hop &amp; drift · Shift = trick in air · H = quack · R = rescue · M = mute · Esc = pause</div>
+    </div>
+    <div class="save"></div>
+  </div>
+  <div id="fade"></div>
+</div>
+<script src="vendor/three.min.js"></script>
+<script src="src/util.js"></script>
+<script src="src/pixel.js"></script>
+<script src="src/voxel.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/orders.js"></script>
+<script src="src/world.js"></script>
+<script src="src/kart.js"></script>
+<script src="src/bears.js"></script>
+<script src="src/kitchen.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

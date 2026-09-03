@@ -1,0 +1,216 @@
+// Flippin' Waffles — game states, loop, HUD glue, saving
+(() => {
+  const U = FW.U, HUD = FW.HUD, A = FW.Audio, W = FW.World, Inp = FW.Input;
+  const canvas = document.getElementById('game');
+  const renderer = FW.Pixel.init(canvas);
+  const worldScene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(62, FW.Pixel.size.aspect, 0.1, 1500);
+  const { fx } = W.build(worldScene);
+  const kart = new FW.Kart(worldScene);
+  const bears = new FW.Bears(worldScene, W, fx);
+  const kitchen = new FW.Kitchen();
+  FW.events.on('resize', (s) => { camera.aspect = s.aspect; camera.updateProjectionMatrix(); kitchen.camera.aspect = s.aspect; kitchen.camera.updateProjectionMatrix(); });
+
+  const SAVE_KEY = 'flippinWaffles.save.v1';
+  const defaultSave = () => ({ day: 1, coins: 0, rep: 3, delivered: 0, orderIndex: 0, bestTip: 0, tricks: 0, bearsHonked: 0 });
+  let save = defaultSave();
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.day) save = Object.assign(defaultSave(), s); } catch (e) { /* no storage */ }
+  const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } };
+
+  const G = { state: 'title', order: null, results: [], stolen: 0, timer: 0, timerMax: 0, cookLeft: 1, modal: false, paused: false, dayOrders: 3, dayCoins: 0, dayLog: [], hype: 0, titleT: 0, deliverT: 0, muted: false };
+  const START = { x: 0, z: 66, yaw: 0 };
+  const destInfo = () => { const o = {}; for (const [id, d] of Object.entries(W.destinations)) o[id] = { name: d.name, x: d.x, z: d.z, dist: d.dist }; return o; };
+  FW.Orders.seed(1000 + save.day * 7 + save.orderIndex);
+
+  // ---------- title ----------
+  function showTitle() {
+    G.state = 'title'; HUD.hideAll(); HUD.title(true, save.delivered ? `Welcome back! Day ${save.day} · ${save.coins} coins · ${save.delivered} deliveries` : 'New game — cozy mode: no fail states, just waffles');
+    kart.reset(START.x, START.z, START.yaw); kart.controllable = false; kart.setBoxVisible(true);
+    W.setDelivery(null); W.setTimeOfDay(0.15);
+    document.getElementById('game').style.cursor = 'default';
+  }
+  function startGame() {
+    A.init(); A.resume();
+    HUD.title(false);
+    if (save.orderIndex >= G.dayOrders) { save.orderIndex = 0; save.day++; }
+    nextOrder();
+  }
+  document.getElementById('start').addEventListener('click', (e) => { e.stopPropagation(); if (G.state === 'title') startGame(); });
+
+  // ---------- kitchen ----------
+  function nextOrder() {
+    G.order = FW.Orders.makeOrder(save.day, save.orderIndex, destInfo());
+    G.results = []; G.stolen = 0;
+    W.setTimeOfDay([0.12, 0.5, 0.9][save.orderIndex % 3]);
+    G.state = 'kitchen'; G.timer = G.timerMax = G.order.cookTime;
+    HUD.hideAll(); HUD.stats(save); HUD.ticket(G.order, { index: 0, made: [], counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, toppings: new Set() });
+    kitchen.onProgress = (p) => HUD.ticket(G.order, p);
+    kitchen.onDone = (made) => { G.results = made; G.cookLeft = U.clamp(G.timer / G.timerMax, 0, 1); setTimeout(startRide, 600); };
+    kitchen.startOrder(G.order);
+    A.playMusic('kitchen');
+    document.getElementById('game').style.cursor = 'crosshair';
+    HUD.popup(`New order from ${G.order.customer.name}!`, 'mint');
+  }
+
+  // ---------- ride ----------
+  async function startRide() {
+    await HUD.fade(1, 0.5);
+    HUD.hideAll(); HUD.stats(save);
+    kart.reset(START.x, START.z, START.yaw); kart.controllable = true; kart.trickPoints = 0; kart.events.length = 0; kart.setBoxVisible(true);
+    W.setDelivery(G.order.dest.id); W.spawnCustomer(G.order);
+    G.state = 'ride'; G.timer = G.timerMax = G.order.rideTime; G.hype = 0;
+    HUD.ticket(G.order, { index: G.order.waffles.length, made: G.results });
+    HUD.waffles(true, G.order.waffles.length, 0);
+    HUD.hint(`Deliver to <b>${HUD.esc(G.order.dest.name)}</b>! Space = hop/drift · Shift = trick in the air · H = quack at bears`);
+    A.playMusic('ride');
+    document.getElementById('game').style.cursor = 'default';
+    kart.updateCamera(0, camera, W);
+    await HUD.fade(0, 0.5);
+    setTimeout(() => HUD.hint(''), 9000);
+  }
+  function carrying() { return G.state === 'ride' ? Math.max(0, G.order.waffles.length - G.stolen) : 0; }
+  function handleEvents() {
+    for (const e of kart.events) {
+      switch (e.type) {
+        case 'honk': { const n = bears.honk(kart); if (n) { HUD.popup(n > 1 ? 'Bears scared off!' : 'Bear scared off!', 'mint small'); save.bearsHonked += n; } break; }
+        case 'trickLand': HUD.popup(e.n > 1 ? `${e.n}x TRICK COMBO!` : 'Trick!', 'gold'); save.tricks += e.n; G.hype += e.n; break;
+        case 'driftBoost': HUD.popup(['', 'Mini turbo!', 'Super turbo!', 'ULTRA TURBO!'][e.stage], e.stage === 3 ? 'gold' : 'mint'); break;
+        case 'grindStart': HUD.popup('Grind!', 'mint small'); break;
+        case 'grindEnd': HUD.popup(`Rail grind +${e.pts}`, 'gold'); G.hype += e.pts; break;
+        case 'pad': HUD.popup('Zoom!', 'mint small'); break;
+        case 'bonk': HUD.popup('Bonk!', 'bad small'); break;
+        case 'wipeout': HUD.popup('Ouch!', 'bad'); break;
+        case 'wobble': HUD.popup('Wobbly landing', 'bad small'); break;
+        case 'rescued': HUD.popup('A ranger fished you out!', 'mint'); break;
+        case 'reset': HUD.popup('Back on the road', 'mint small'); break;
+      }
+    }
+    kart.events.length = 0;
+    for (const e of bears.events) {
+      if (e.type === 'steal' && G.state === 'ride') { G.stolen = Math.min(G.order.waffles.length, G.stolen + 1); HUD.waffles(true, G.order.waffles.length, G.stolen); HUD.popup('A bear stole a waffle!', 'bad'); }
+      else if (e.type === 'growl') HUD.popup('grrr…', 'bad small');
+    }
+    bears.events.length = 0;
+  }
+  function updateRide(dt) {
+    kart.update(dt, Inp, W, fx);
+    bears.update(dt, kart, carrying());
+    handleEvents();
+    if (G.state === 'ride' || G.state === 'home') G.timer = Math.max(0, G.timer - dt);
+    const target = G.state === 'ride' ? W.destinations[G.order.dest.id] : { x: W.HOME.x, z: W.HOME.z + 8, name: 'Home', r: 9 };
+    const dx = target.x - kart.pos.x, dz = target.z - kart.pos.z, dist = Math.hypot(dx, dz);
+    HUD.compass(true, -Math.PI / 2 - U.angleDiff(kart.cam.yaw, Math.atan2(dx, dz)), dist, target.name);
+    HUD.drift(true, Math.abs(kart.speed) * 3.6, kart.drift.active ? kart.drift.stage : 0, kart.boost > 0, `Style ${Math.floor(kart.trickPoints)}`);
+    if (G.state === 'ride') HUD.timer(true, G.timer / G.timerMax, G.timer > 0 ? U.fmtTime(G.timer) : 'late… still tasty!');
+    else HUD.timer(false);
+    if (dist < (target.r || 7) && kart.controllable) { if (G.state === 'ride') deliver(); else arriveHome(); }
+  }
+  function deliver() {
+    G.state = 'delivering'; kart.controllable = false; G.deliverT = 0;
+    A.sfx.ding(); const d = W.destinations[G.order.dest.id];
+    fx.burst(d.x + 3, d.y + 1.5, d.z + 3, 14, { color: ['#ff8fa3', '#ff5c8a'], speed: 1, up: 2.5, life: 1.6, size: 0.2, extra: { gravity: -0.6, shrink: false } });
+    HUD.hint('');
+    setTimeout(showReceipt, 1300);
+  }
+  function showReceipt() {
+    const stolen = G.stolen;
+    const pay = FW.Orders.payout(G.order, G.results, G.timer / G.timerMax, stolen, kart.trickPoints);
+    const cookTip = Math.round(3 * G.cookLeft); pay.coins += cookTip; pay.lines.push({ label: 'Fresh & fast cooking', value: cookTip });
+    save.coins += pay.coins; save.delivered++; G.dayCoins += pay.coins; save.bestTip = Math.max(save.bestTip, pay.coins);
+    save.rep = U.clamp(save.rep + (pay.happiness - 0.55) * 0.6, 1, 5);
+    G.dayLog.push({ name: G.order.customer.name, dest: G.order.dest.name, coins: pay.coins, happiness: pay.happiness });
+    persist(); HUD.stats(save);
+    const c = G.order.customer; const quote = pay.happiness > 0.7 ? c.quotes[0] : pay.happiness > 0.4 ? c.quotes[1] : 'Hmm… thanks, I guess.';
+    if (pay.happiness > 0.7) A.sfx.fanfare(); else if (pay.happiness > 0.4) A.sfx.happy(); else A.sfx.sad();
+    const face = pay.happiness > 0.7 ? '😊' : pay.happiness > 0.4 ? '🙂' : '😕';
+    let rows = pay.lines.map((l) => `<tr><td>${HUD.esc(l.label)}${l.quality !== undefined ? ` <span class="stars">${HUD.stars(l.quality * 5)}</span>` : ''}</td><td class="coins">+${l.value}</td></tr>`).join('');
+    HUD.panel(`<h2>Delivered! ${face}</h2><div class="quote">“${HUD.esc(quote)}” — ${HUD.esc(c.name)}</div><table>${rows}</table><div class="big">Total: 🪙 ${pay.coins}</div>${stolen ? `<div class="quote">${stolen} waffle${stolen > 1 ? 's were' : ' was'} eaten by bears. Honk (H) to scare them next time!</div>` : ''}`,
+      [{ label: 'Ride home', onClick: () => { HUD.closePanel(); G.modal = false; rideHome(); } }]);
+    G.modal = true;
+  }
+  function rideHome() {
+    G.state = 'home'; kart.controllable = true; kart.setBoxVisible(false); kart.trickPoints = 0;
+    W.setDelivery(null); W.clearCustomer(); HUD.waffles(false); HUD.ticket(null);
+    HUD.hint('Ride back <b>home</b> to the waffle shack. Tricks on the way home earn <b>hype</b> tips!');
+    setTimeout(() => { if (G.state === 'home') HUD.hint(''); }, 7000);
+  }
+  async function arriveHome() {
+    kart.controllable = false; G.state = 'arriving';
+    const hype = Math.floor(kart.trickPoints / 4);
+    if (hype > 0) { save.coins += hype; HUD.popup(`Hype tips: +${hype} coins!`, 'gold'); A.sfx.coin(); }
+    save.orderIndex++; persist();
+    await HUD.fade(1, 0.6);
+    HUD.compass(false); HUD.drift(false);
+    if (save.orderIndex >= G.dayOrders) daySummary(); else { nextOrder(); }
+    await HUD.fade(0, 0.6);
+  }
+  function daySummary() {
+    G.state = 'summary'; G.modal = true; HUD.hideAll(); HUD.stats(save);
+    W.setTimeOfDay(1); kart.reset(START.x, START.z, START.yaw); kart.controllable = false;
+    const rows = G.dayLog.map((l) => `<tr><td>${HUD.esc(l.name)} · ${HUD.esc(l.dest)}</td><td class="coins">+${l.coins}</td></tr>`).join('');
+    HUD.panel(`<h2>Day ${save.day} complete!</h2><table>${rows}</table><div class="big">Earned today: 🪙 ${G.dayCoins}</div><div>Reputation: <span class="stars">${HUD.stars(save.rep)}</span> · Total coins: ${save.coins} · Deliveries: ${save.delivered}</div><div class="quote">The bears are asleep. Time for cocoa. 🌙</div>`,
+      [{ label: 'Next day', onClick: () => { HUD.closePanel(); G.modal = false; save.day++; save.orderIndex = 0; G.dayCoins = 0; G.dayLog = []; persist(); FW.Orders.seed(1000 + save.day * 7); nextOrder(); } }]);
+    A.playMusic('kitchen'); A.sfx.fanfare();
+  }
+
+  // ---------- pause / global keys ----------
+  function togglePause() {
+    if (G.state === 'title') return;
+    G.paused = !G.paused;
+    if (G.paused) {
+      HUD.panel(`<h2>Paused</h2><div>Day ${save.day} · ${save.coins} coins</div><div class="quote">Kitchen: click ingredients · hold bowl to whisk · Space to flip/open<br>Scooter: WASD/arrows · Space hop &amp; drift · Shift trick · H quack · R rescue</div>`,
+        [{ label: 'Resume', onClick: togglePause }, { label: A.muted ? 'Unmute' : 'Mute', cls: 'alt', onClick: () => { A.setMuted(!A.muted); togglePause(); togglePause(); } }, { label: 'Reset save', cls: 'ghost', onClick: () => { if (confirm('Start over from Day 1?')) { save = defaultSave(); persist(); location.reload(); } } }]);
+    } else HUD.closePanel();
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') togglePause();
+    if (e.code === 'KeyM') { A.init(); A.setMuted(!A.muted); HUD.popup(A.muted ? 'Muted' : 'Sound on', 'small'); }
+    if (e.code === 'Enter' && G.state === 'title') startGame();
+  });
+  window.addEventListener('mousedown', () => { if (G.state === 'title') return; A.init(); A.resume(); }, { once: false });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !G.paused && G.state !== 'title') togglePause(); });
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!G.paused && !G.modal) update(dt);
+    render();
+    Inp.endFrame();
+  }
+  function update(dt) {
+    const p = kart.pos;
+    switch (G.state) {
+      case 'title': {
+        G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
+        const a = G.titleT * 0.18; camera.position.set(Math.sin(a) * 22, W.groundAt(0, 58).y + 9 + Math.sin(G.titleT * 0.5) * 1.5, 58 + Math.cos(a) * 22);
+        camera.lookAt(0, W.groundAt(0, 58).y + 3, 58); if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
+        break; }
+      case 'kitchen': {
+        kitchen.update(dt, Inp);
+        G.timer = Math.max(0, G.timer - dt); HUD.timer(true, G.timer / G.timerMax, G.timer > 0 ? U.fmtTime(G.timer) : 'take your time~');
+        W.update(dt * 0.2, p, null);
+        break; }
+      case 'ride': case 'home': {
+        const steps = dt > 1 / 40 ? 2 : 1;
+        for (let i = 0; i < steps; i++) updateRide(dt / steps);
+        W.update(dt, p, camera); kart.updateCamera(dt, camera, W);
+        break; }
+      case 'delivering': case 'arriving': {
+        G.deliverT += dt; kart.speed = U.damp(kart.speed, 0, 4, dt); kart.update(dt, { axis: () => 0, throttle: () => 0, held: () => false, pressed: () => false }, W, fx);
+        kart.events.length = 0; bears.update(dt, kart, 0); bears.events.length = 0; W.update(dt, p, camera); kart.updateCamera(dt, camera, W);
+        break; }
+      case 'summary': { W.update(dt, p, camera); const a = W.time * 0.1; camera.position.set(Math.sin(a) * 20, W.groundAt(0, 58).y + 8, 58 + Math.cos(a) * 20); camera.lookAt(0, W.groundAt(0, 58).y + 3, 58); break; }
+    }
+    if (G.state !== 'ride' && G.state !== 'home' && G.state !== 'delivering') A.setEngine(false);
+  }
+  function render() {
+    if (G.state === 'kitchen') kitchen.render(renderer); else renderer.render(worldScene, camera);
+  }
+  showTitle();
+  requestAnimationFrame(frame);
+
+  // debug / automation hooks
+  FW.game = { G, kart, bears, kitchen, camera, get save() { return save; }, startGame, nextOrder, startRide, deliver, rideHome, showTitle, W, renderer, worldScene };
+})();

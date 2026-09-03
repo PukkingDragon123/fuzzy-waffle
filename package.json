@@ -1,0 +1,11 @@
+{
+  "name": "flippin-waffles",
+  "version": "1.0.0",
+  "description": "A cozy 3D pixel-art game: you're a duck running a waffle delivery business in Yosemitea National Park.",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server . -p 8080 -o -c-1",
+    "build": "node tools/build.js"
+  },
+  "license": "MIT"
+}
