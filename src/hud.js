@@ -10,23 +10,30 @@ FW.HUD = (() => {
   const stars = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
 
   function ticket(order, progress) {
-    // progress: { index, made: [{ok:boolean}], counts:{flour,sugar,egg,milk}, toppings:Set }
     if (!order) { show('ticket', false); return; }
     show('ticket');
-    let h = `<div class="from">Order for ${esc(order.customer.name)}</div><div class="dest">→ ${esc(order.dest.name)}</div>`;
+    let h = `<div class="from">Order · ${esc(order.customer.name)}</div><div class="dest">${esc(order.dest.name)}</div>`;
     order.waffles.forEach((w, i) => {
       const r = w.recipe;
       const cls = i < progress.index ? 'done' : i === progress.index ? 'active' : '';
-      h += `<div class="waffle ${cls}"><div class="name">${i + 1}. ${esc(r.name)}${i < progress.index ? (progress.made[i] && progress.made[i].quality >= 0.75 ? ' ✔' : ' ✔︎~') : ''}</div>`;
+      const done = i < progress.index;
+      h += `<div class="waffle ${cls}"><div class="name">${i + 1}. ${esc(r.name)}${done ? ' <span class="tick">✔</span>' : ''}</div>`;
       if (i === progress.index && progress.counts) {
+        h += '<div class="chips">';
         for (const k of ['flour', 'sugar', 'egg', 'milk']) {
-          const have = progress.counts[k], need = r.batter[k];
-          const c = have === need ? 'ok' : have > need ? 'bad' : '';
-          h += `<div class="row"><span>${esc(FW.Orders.ING[k].name)}</span><span class="${c}">${have}/${need}</span></div>`;
+          const need = r.batter[k]; if (!need) continue;
+          const have = progress.counts[k] || 0;
+          const st = have === need ? 'ok' : have > need ? 'over' : '';
+          h += `<span class="chip ${st}"><i class="sw ${k}"></i>${esc(FW.Orders.ING[k].name)} <b>${have}/${need}</b></span>`;
         }
-        const tops = r.toppings.map((t) => `<span class="${progress.toppings && progress.toppings.has(t) ? 'have' : ''}">${esc(FW.Models.TOPPINGS[t].name)}</span>`);
-        const wrong = progress.toppings ? [...progress.toppings].filter((t) => !r.toppings.includes(t)).map((t) => `<span class="wrong">${esc(FW.Models.TOPPINGS[t].name)}</span>`) : [];
-        h += `<div class="tops">Top: ${tops.concat(wrong).join(', ')}</div>`;
+        for (const k of ['flour', 'sugar', 'egg', 'milk']) {
+          const need = r.batter[k], have = progress.counts[k] || 0;
+          if (!need && have) h += `<span class="chip over"><i class="sw ${k}"></i>${esc(FW.Orders.ING[k].name)} <b>${have}/0</b></span>`;
+        }
+        h += '</div><div class="chips">';
+        for (const t of r.toppings) h += `<span class="chip top ${progress.toppings && progress.toppings.has(t) ? 'ok' : ''}"><i class="sw" style="background:${FW.Models.TOPPINGS[t].color}"></i>${esc(FW.Models.TOPPINGS[t].name)}</span>`;
+        if (progress.toppings) for (const t of progress.toppings) if (!r.toppings.includes(t)) h += `<span class="chip over"><i class="sw" style="background:${FW.Models.TOPPINGS[t].color}"></i>${esc(FW.Models.TOPPINGS[t].name)}</span>`;
+        h += '</div>';
       } else {
         h += `<div class="tops">${esc(r.hint)}</div>`;
       }
@@ -89,33 +96,78 @@ FW.HUD = (() => {
   function closePanel() { show('panel', false); }
   function title(v, saveText) { show('title', v); if (v && saveText !== undefined) el.title.querySelector('.save').textContent = saveText; }
   function fade(to, dur = 0.5) { return new Promise((res) => { el.fade.style.transition = `opacity ${dur}s`; el.fade.style.opacity = to; setTimeout(res, dur * 1000); }); }
-  // --- minimap: world radar with roads, destination, home, bears and tokens ---
-  let mmCtx = null, mmBase = null, mmSize = 0;
-  function minimapInit(map) { mmBase = map.canvas; mmSize = map.size; mmCtx = el.minimap.getContext('2d'); el.minimap.width = el.minimap.height = mmSize; }
+  // --- minimap: drawn like a map app — landcover, roads, a route, labels ---
+  let mmCtx = null, mmBase = null, mmSize = 0, mmLabels = [];
+  function minimapInit(map) {
+    mmBase = map.canvas; mmSize = map.size; mmLabels = map.labels || [];
+    el.minimap.width = el.minimap.height = mmSize;
+    mmCtx = el.minimap.getContext('2d');
+  }
   function minimap(v, data) {
     show('minimap', v);
     if (!v || !mmCtx || !mmBase) return;
     const S = mmSize, g = mmCtx;
     g.clearRect(0, 0, S, S);
-    g.save();
-    g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 2, 0, 7); g.clip();
     g.drawImage(mmBase, 0, 0);
-    const dot = (p, r, fill, ring) => {
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // the route, in navigation blue
+    if (data.route && data.route.length > 1) {
+      g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 7;
+      g.beginPath(); data.route.forEach((p, i) => { i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); g.stroke();
+      g.strokeStyle = '#2f7fe0'; g.lineWidth = 4.2;
+      g.beginPath(); data.route.forEach((p, i) => { i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); g.stroke();
+    }
+    const pin = (p, r, fill, ring) => {
       g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fillStyle = fill; g.fill();
       if (ring) { g.lineWidth = 2; g.strokeStyle = ring; g.stroke(); }
     };
-    for (const t of data.tokens) dot(t, 1.6, '#f7c544');
-    for (const b of data.bears) dot(b, 2.2, '#7a5334');
-    dot(data.home, 3.4, '#e5564a', '#fff3dc');
-    if (data.dest) dot(data.dest, 4.2, '#f7c544', '#3d2c1e');
-    // player arrow
+    for (const t of data.tokens) pin(t, 1.7, '#e8a32a');
+    for (const b of data.bears) pin(b, 2.6, '#5b4028', '#fff');
+    for (const c of data.cars) pin(c, 1.9, '#5a6270');
+    // place labels
+    g.font = '600 9px "Roboto Condensed", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const l of mmLabels) {
+      g.lineWidth = 2.6; g.strokeStyle = 'rgba(255,255,255,.92)';
+      g.strokeText(l.text, l.at[0], l.at[1] - 6);
+      g.fillStyle = l.home ? '#b4453c' : '#4a5240';
+      g.fillText(l.text, l.at[0], l.at[1] - 6);
+    }
+    pin(data.home, 3.2, '#e5564a', '#fff');
+    if (data.dest) {
+      // destination pin, teardrop style
+      const [x, y] = data.dest;
+      g.beginPath(); g.moveTo(x, y + 2); g.lineTo(x - 4.4, y - 5); g.lineTo(x + 4.4, y - 5); g.closePath();
+      g.fillStyle = '#2f7fe0'; g.fill();
+      pin([x, y - 7.5], 4.6, '#2f7fe0', '#ffffff');
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(x, y - 7.5, 1.7, 0, 7); g.fill();
+    }
+    // the player: a heading cone plus a blue dot, the way a map app shows you
     const [px, py] = data.player;
     g.save(); g.translate(px, py); g.rotate(-data.yaw);
-    g.beginPath(); g.moveTo(0, -6); g.lineTo(4.4, 5); g.lineTo(0, 2.6); g.lineTo(-4.4, 5); g.closePath();
-    g.fillStyle = '#fffdf6'; g.fill(); g.lineWidth = 1.6; g.strokeStyle = '#3d2c1e'; g.stroke();
+    const grd = g.createLinearGradient(0, 0, 0, -16);
+    grd.addColorStop(0, 'rgba(47,127,224,.55)'); grd.addColorStop(1, 'rgba(47,127,224,0)');
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(-7, -16); g.lineTo(7, -16); g.closePath(); g.fillStyle = grd; g.fill();
     g.restore();
+    pin([px, py], 4.2, '#2f7fe0', '#ffffff');
+    // north arrow
+    g.save();
+    g.translate(S - 15, 15);
+    g.beginPath(); g.moveTo(0, -8); g.lineTo(4, 4); g.lineTo(0, 1); g.lineTo(-4, 4); g.closePath();
+    g.fillStyle = '#c0392b'; g.fill();
+    g.font = '700 8px "Roboto Condensed", system-ui, sans-serif'; g.fillStyle = '#4a5240'; g.textAlign = 'center';
+    g.fillText('N', 0, 11);
     g.restore();
   }
+  // navigation banner: destination, distance and a turn arrow
+  function nav(v, o) {
+    show('compass', v);
+    if (!v) return;
+    el.compass.querySelector('.arrow').style.transform = `rotate(${o.angle}rad)`;
+    el.compass.querySelector('.dest').textContent = o.name;
+    el.compass.querySelector('.dist').textContent = o.dist >= 1000 ? (o.dist / 1000).toFixed(1) + ' km' : Math.round(o.dist) + ' m';
+    el.compass.querySelector('.eta').textContent = o.eta;
+  }
   function hideAll() { ['ticket', 'compass', 'timer', 'meter', 'waffles', 'drift', 'tooltip', 'hint', 'panel', 'title', 'minimap'].forEach((k) => show(k, false)); }
-  return { el, show, esc, stars, ticket, stats, compass, timer, meter, waffles, drift, tooltip, popup, hint, panel, closePanel, title, fade, hideAll, minimapInit, minimap };
+  return { el, show, esc, stars, ticket, stats, compass, nav, timer, meter, waffles, drift, tooltip, popup, hint, panel, closePanel, title, fade, hideAll, minimapInit, minimap };
 })();

@@ -19,6 +19,7 @@ FW.Kitchen = class {
     this.draggables = []; this.targets = [];
     this.drag = null; this.hover = null; this.wasDown = false; this.tweens = []; this.springs = [];
     this.state = 'idle'; this.order = null; this.index = 0; this.made = []; this.cur = null;
+    this.pops = []; this.addPitch = 0;
     this.cook = 0; this.whiskMeter = 0; this.t = 0; this.waitTimer = 0; this.stirAngle = null; this.stirRate = 0;
     this.onDone = null; this.onProgress = null;
     this.TOP = 0.98; this.LIFT = 1.28;
@@ -32,6 +33,15 @@ FW.Kitchen = class {
     this.tweens.push({ obj, prop, from, to: new THREE.Vector3(to.x ?? from.x, to.y ?? from.y, to.z ?? from.z), t: 0, dur, cb, ease: ease || FW.U.easeInOut });
   }
   static easeBack(t) { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
+  // register an object so it can be given a springy squash kick
+  popper(obj, base = 1) { const s = { obj, base, spring: new FW.Kart.Spring(1, 210, 12) }; this.pops.push(s); obj.userData.popper = s; return s; }
+  pop(obj, amount = 8) { const s = obj && obj.userData.popper; if (s) s.spring.kick(amount); }
+  updatePops(dt) {
+    for (const s of this.pops) {
+      const v = FW.U.clamp(s.spring.update(dt), 0.68, 1.4);
+      s.obj.scale.set(s.base / Math.sqrt(v), s.base * v, s.base / Math.sqrt(v));
+    }
+  }
   updateTweens(dt) {
     for (let i = this.tweens.length - 1; i >= 0; i--) {
       const tw = this.tweens[i]; tw.t += dt;
@@ -270,6 +280,10 @@ FW.Kitchen = class {
     this.box = bx;
     this.boxCount = new THREE.Group(); this.boxCount.position.set(2.0, TOP + 0.06, 0.38); S.add(this.boxCount);
 
+    // springy squash on the props you interact with most
+    this.popper(this.bowl); this.popper(this.ironG); this.popper(this.box);
+    this.popper(this.plateWaffle, 0.48);
+
     // highlight ring shown under a live drop target
     this.halo = new THREE.Mesh(V.torus(0.42, 0.035, 6, 26), FW.Pixel.flat('#f7c544'));
     this.halo.rotation.x = -Math.PI / 2; this.halo.visible = false; S.add(this.halo);
@@ -298,7 +312,7 @@ FW.Kitchen = class {
   }
   beginWaffle() {
     this.cur = { counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, whisk: 0, whisked: false, flip: 0, cook: 0, toppings: new Set(), doneness: 0.5 };
-    this.state = 'mixing'; this.cook = 0; this.whiskMeter = 0; this.stirAngle = null; this.stirRate = 0;
+    this.state = 'mixing'; this.cook = 0; this.whiskMeter = 0; this.stirAngle = null; this.stirRate = 0; this.zoneRang = false; this.addPitch = 0;
     this.batter.visible = false; this.batter.material.color.set('#f7e6b8');
     this.ironBatter.visible = false; this.ironWaffle.visible = false; this.plateWaffle.visible = false;
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
@@ -317,12 +331,13 @@ FW.Kitchen = class {
     const c = this.cur.counts;
     if (c[k] >= 5) { FW.HUD.popup('The bowl is full!', 'bad small'); return; }
     c[k]++;
-    FW.Audio.sfx.add();
+    FW.Audio.sfx.note(this.addPitch++);
     const col = FW.Orders.ING[k].color;
     const at = from || this.bowl.position;
     this.fx.burst(this.bowl.position.x, this.bowl.position.y + 0.3, this.bowl.position.z, 9, { color: [col, '#ffffff'], speed: 0.7, up: 1.4, life: 0.5, size: 0.035, extra: { gravity: 3.5 } });
     this.updateBatter(true);
-    this.duckSq.kick(4);
+    this.pop(this.bowl, 11);
+    this.duckSq.kick(5);
     this.progress();
   }
   updateBatter(pop) {
@@ -346,12 +361,14 @@ FW.Kitchen = class {
     else { s = Math.max(0.4, 1 - (m - 100) / 40); txt = 'Overmixed!'; cls = 'bad'; }
     this.cur.whisk = s; this.cur.whisked = true; this.state = 'mixed';
     FW.HUD.popup(txt, cls); FW.HUD.meter(false);
-    this.setHint('Batter ready! <b>Drag the bowl</b> over the waffle iron to pour');
-    this.fx.ring(this.bowl.position.x, this.bowl.position.y + 0.35, this.bowl.position.z, 10, { color: ['#fff6a8', '#ffffff'], speed: 1.1, up: 1.0, life: 0.6, size: 0.035, gravity: 3 });
+    this.setHint('Batter ready! <b>Drag the bowl</b> onto the waffle iron');
+    this.fx.ring(this.bowl.position.x, this.bowl.position.y + 0.35, this.bowl.position.z, 12, { color: ['#fff6a8', '#ffffff'], speed: 1.2, up: 1.1, life: 0.6, size: 0.035, gravity: 3 });
+    this.pop(this.bowl, s === 1 ? 18 : 8);
+    if (s === 1) { FW.Audio.sfx.sparkle(); this.confetti(this.bowl.position, 18); }
     if (this.whisk.userData.home) { this.tween(this.whisk, 'position', this.whisk.userData.home, 0.35, null, FW.Kitchen.easeBack); }
   }
   pour() {
-    if (this.state === 'pouring' || this.state === 'cooking1' || this.state === 'cooking2') return;
+    if (this.state === 'pouring' || this.state === 'cooking' || this.state === 'flipping') return;
     const total = Object.values(this.cur.counts).reduce((a, b) => a + b, 0);
     if (total === 0) { FW.HUD.popup('The bowl is empty!', 'bad small'); return; }
     if (!this.cur.whisked) { this.cur.whisk = 0.35; FW.HUD.popup('Unmixed batter...', 'bad small'); }
@@ -368,56 +385,51 @@ FW.Kitchen = class {
   closeLid() {
     this.batter.visible = false;
     this.tween(this.bowl, 'rotation', { x: 0 }, 0.3);
-    this.tween(this.bowl, 'position', this.bowl.userData.home, 0.45, null, FW.Kitchen.easeBack);
-    this.tween(this.lid, 'rotation', { x: 0 }, 0.4, () => {
-      this.state = 'cooking1'; this.cook = 0;
+    this.tween(this.bowl, 'position', this.bowl.userData.home, 0.45, () => { this.bowl.userData.returning = false; }, FW.Kitchen.easeBack);
+    this.tween(this.lid, 'rotation', { x: 0 }, 0.36, () => {
+      this.state = 'cooking'; this.cook = 0;
       this.ironLight.material.color.set('#e5564a');
-      FW.Audio.setSizzle(1);
-      FW.Audio.sfx.clack();
-      this.setHint('Cooking! <b>Click the iron</b> (or Space) to flip when the meter hits the <b>golden zone</b>');
+      FW.Audio.setSizzle(1); FW.Audio.sfx.clack();
+      this.pop(this.ironG, 9);
+      this.setHint('It is cooking! <b>Tap the iron</b> (or Space) when the meter is in the <b>golden zone</b>');
     });
   }
-  flip() {
-    if (this.state !== 'cooking1') return;
-    const score = this.zoneScore(this.cook, 55, 80);
-    this.cur.flip = score; this.cur.cook1 = this.cook; this.state = 'flipping';
-    FW.Audio.sfx.flip();
-    FW.HUD.popup(score > 0.95 ? 'PERFECT FLIP!' : score > 0.7 ? 'Nice flip!' : this.cook < 55 ? 'Too early...' : 'A bit late!', score > 0.7 ? 'gold' : 'bad');
+  // the single satisfying beat: flip the iron right over and the waffle lands on the plate
+  flipOut() {
+    if (this.state !== 'cooking') return;
+    const score = this.zoneScore(this.cook, 52, 82);
+    this.cur.flip = score; this.cur.cook = score;
+    this.cur.doneness = FW.U.clamp(this.cook / 100 * 0.92, 0, 1);
+    this.state = 'flipping';
+    FW.Audio.setSizzle(0); FW.Audio.sfx.flip();
+    FW.HUD.popup(score > 0.95 ? 'PERFECT FLIP!' : score > 0.72 ? 'Nice one!' : this.cook < 52 ? 'Too early...' : 'Ooh, a bit dark', score > 0.72 ? 'gold' : 'bad');
+    if (score > 0.95) { FW.Audio.sfx.sparkle(); this.confetti(this.ironG.position, 22); }
     FW.HUD.meter(false);
-    this.duckSq.kick(9);
-    this.tween(this.ironPivot, 'rotation', { x: Math.PI }, 0.5, () => {
-      this.state = 'cooking2'; this.cook = 0;
-      this.setHint('Other side! <b>Click the iron</b> (or Space) in the golden zone to open it');
+    this.ironLight.material.color.set('#552222');
+    this.duckSq.kick(12); this.pop(this.ironG, 16);
+    for (let i = 0; i < 16; i++) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.6, y: this.TOP + 0.3, z: this.ironG.position.z + (Math.random() - 0.5) * 0.5, vy: 0.9 + Math.random() * 0.6, life: 1.2, size: 0.06, color: '#ffffff', gravity: -0.5, shrink: false });
+    const d = this.cur.doneness;
+    this.tween(this.ironPivot, 'rotation', { x: Math.PI * 2 }, 0.62, () => {
+      this.ironPivot.rotation.x = 0;
+      this.ironBatter.visible = false;
+      this.plateWaffle.visible = true; this.plateWaffle.userData.setDoneness(d);
+      this.plateWaffle.position.set(this.ironG.position.x, this.TOP + 0.62, this.ironG.position.z);
+      this.tween(this.plateWaffle, 'position', this.plateWaffle.userData.home, 0.46, () => {
+        this.pop(this.plateWaffle, 14); FW.Audio.sfx.plop();
+        this.fx.ring(this.plateWaffle.position.x, this.plateWaffle.position.y + 0.05, this.plateWaffle.position.z, 10, { color: ['#f7c544', '#ffffff'], speed: 1.1, up: 0.9, life: 0.5, size: 0.035, gravity: 3 });
+        this.state = 'topping'; this.addPitch = 0;
+        this.setHint('<b>Drag toppings</b> onto the waffle, then <b>drag the waffle</b> into the box');
+      }, FW.Kitchen.easeBack);
+      this.tween(this.lid, 'rotation', { x: -2.0 }, 0.4);
     });
   }
-  open() {
-    if (this.state !== 'cooking2') return;
-    const score = this.zoneScore(this.cook, 50, 80);
-    this.cur.cook = score;
-    const d = FW.U.clamp(((this.cur.cook1 / 100) + (this.cook / 100)) / 2 * 0.77, 0, 1);
-    this.cur.doneness = d;
-    this.state = 'opening'; FW.Audio.setSizzle(0); FW.Audio.sfx.flip();
-    FW.HUD.popup(score > 0.95 ? 'GOLDEN!' : score > 0.7 ? 'Looks great!' : this.cook < 50 ? 'Still pale...' : 'Ooh, a bit dark', score > 0.7 ? 'gold' : 'bad');
-    FW.HUD.meter(false); this.ironLight.material.color.set('#552222');
-    this.tween(this.ironPivot, 'rotation', { x: Math.PI * 2 }, 0.45, () => {
-      this.ironPivot.rotation.x = 0;
-      this.tween(this.lid, 'rotation', { x: -2.0 }, 0.38, () => {
-        this.ironBatter.visible = false;
-        this.ironWaffle.visible = true; this.ironWaffle.userData.setDoneness(d);
-        for (let i = 0; i < 14; i++) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.5, y: this.TOP + 0.3, z: this.ironG.position.z + (Math.random() - 0.5) * 0.4, vy: 0.7 + Math.random() * 0.5, life: 1.3, size: 0.06, color: '#ffffff', gravity: -0.5, shrink: false });
-        setTimeout(() => {
-          this.ironWaffle.visible = false;
-          this.plateWaffle.visible = true; this.plateWaffle.userData.setDoneness(d);
-          const to = this.plateWaffle.userData.home.clone();
-          this.plateWaffle.position.set(this.ironG.position.x, this.TOP + 0.35, this.ironG.position.z);
-          this.tween(this.plateWaffle, 'position', to, 0.5, () => {
-            this.state = 'topping';
-            this.setHint('<b>Drag toppings</b> onto the waffle to match the ticket, then <b>drag the waffle</b> into the box');
-            FW.Audio.sfx.pop();
-          }, FW.Kitchen.easeBack);
-        }, 320);
-      });
-    });
+  confetti(at, n = 18) {
+    const cols = ['#f7c544', '#e5564a', '#7fd1c0', '#ffffff', '#c9a0f0'];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 0.6 + Math.random() * 1.4;
+      this.fx.spawn({ x: at.x, y: this.TOP + 0.35, z: at.z, vx: Math.cos(a) * sp, vy: 1.6 + Math.random() * 1.4, vz: Math.sin(a) * sp,
+        life: 1.1 + Math.random() * 0.5, size: 0.035 + Math.random() * 0.02, color: cols[i % cols.length], gravity: 3.2, spin: 14 });
+    }
   }
   addTopping(k, worldPos) {
     const T = this.cur.toppings;
@@ -438,7 +450,8 @@ FW.Kitchen = class {
     m.rotation.y = Math.random() * Math.PI * 2;
     this.plateWaffle.add(m); this.toppingMeshes[k] = m;
     m.userData.pop = 0.3;
-    FW.Audio.sfx.plop();
+    FW.Audio.sfx.note(3 + this.addPitch++);
+    this.pop(this.plateWaffle, 9);
     const wp = this.plateWaffle.localToWorld(m.position.clone());
     this.fx.ring(wp.x, wp.y + 0.05, wp.z, 7, { color: [FW.Models.TOPPINGS[k].color, '#ffffff'], speed: 0.8, up: 0.8, life: 0.4, size: 0.03, gravity: 3 });
     this.duckSq.kick(3);
@@ -458,7 +471,7 @@ FW.Kitchen = class {
       w.position.set(0, this.index * 0.06, 0);
       this.boxCount.add(w);
       this.tween(this.boxLid, 'rotation', { x: 0 }, 0.28, () => {
-        FW.Audio.sfx.stamp();
+        FW.Audio.sfx.stamp(); this.pop(this.box, 16); this.confetti(this.box.position, 24);
         this.fx.ring(this.box.position.x, this.TOP + 0.42, this.box.position.z, 12, { color: ['#f7c544', '#ffffff'], speed: 1.2, up: 1.5, life: 0.6, size: 0.04, gravity: 2 });
         const stars = Math.round(res.quality * 5);
         FW.HUD.popup(`${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}  ${res.notes[0]}`, res.quality > 0.75 ? 'gold' : res.quality > 0.45 ? '' : 'bad');
@@ -546,7 +559,7 @@ FW.Kitchen = class {
   update(dt, inp) {
     const U = FW.U;
     this.t += dt;
-    this.updateTweens(dt); this.fx.update(dt);
+    this.updateTweens(dt); this.updatePops(dt); this.fx.update(dt);
     for (const s of this.springs) { s.vel += (s.target - s.v) * s.k * dt - s.vel * s.d * dt; s.v += s.vel * dt; }
     const m = inp.mouse;
     const downEdge = m.down && !this.wasDown;
@@ -558,7 +571,7 @@ FW.Kitchen = class {
     const hov = cur ? cur.obj : null;
     if (hov !== this.hover) { this.hover = hov; document.getElementById('game').style.cursor = hov ? 'grab' : 'default'; }
     for (const dgb of this.draggables) {
-      if (dgb === this.plateWaffle) continue;
+      if (dgb.userData.popper) continue;
       const want = (dgb === this.hover && !this.drag) || (this.drag && this.drag.obj === dgb) ? 1.14 : 1;
       dgb.scale.setScalar(U.damp(dgb.scale.x, want, 14, dt));
     }
@@ -568,11 +581,11 @@ FW.Kitchen = class {
     // begin drag
     if (downEdge && !this.drag && hov) this.startDrag(hov, cur.point);
     // tap the iron to flip / open it
-    if (downEdge && !this.drag && (this.state === 'cooking1' || this.state === 'cooking2')) {
+    if (downEdge && !this.drag && this.state === 'cooking') {
       const t = this.pickAt(this.targets, m);
-      if (t && t.obj.userData.kind === 'iron') { if (this.state === 'cooking1') this.flip(); else this.open(); }
+      if (t && t.obj.userData.kind === 'iron') this.flipOut();
     }
-    if (inp.pressed('flip')) { if (this.state === 'cooking1') this.flip(); else if (this.state === 'cooking2') this.open(); }
+    if (inp.pressed('flip') && this.state === 'cooking') this.flipOut();
 
     // move the dragged object
     if (this.drag) {
@@ -650,17 +663,19 @@ FW.Kitchen = class {
       this.ironBatter.scale.set(0.2 + 0.8 * t, 0.4 + 0.6 * t, 0.2 + 0.8 * t);
       if (this.pourTimer <= 0) this.closeLid();
     }
-    // cooking meters
-    if (this.state === 'cooking1' || this.state === 'cooking2') {
-      this.cook += (this.state === 'cooking1' ? 18 : 22) * dt;
-      const zone = this.state === 'cooking1' ? [55, 80] : [50, 80];
+    // the one cooking window
+    if (this.state === 'cooking') {
+      this.cook += 19 * dt;
+      const zone = [52, 82];
       const inZone = this.cook >= zone[0] && this.cook <= zone[1];
       this.ironLight.material.color.set(inZone ? '#7ed37a' : this.cook > zone[1] ? '#3a2018' : '#e5564a');
-      FW.HUD.meter(true, this.state === 'cooking1' ? 'FLIP! (click the iron / Space)' : 'OPEN IT! (click the iron / Space)', this.cook, zone, inZone ? 'NOW!' : this.cook > zone[1] ? 'it is burning!' : 'wait for it...');
+      FW.HUD.meter(true, 'FLIP IT OUT! — tap the iron / Space', this.cook, zone, inZone ? 'NOW!' : this.cook > zone[1] ? 'it is burning!' : 'wait for it...');
+      if (inZone && !this.zoneRang) { this.zoneRang = true; FW.Audio.sfx.ding(); this.pop(this.ironG, 6); }
       if (Math.random() < dt * 14) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.6, y: this.TOP + 0.28, z: this.ironG.position.z + (Math.random() - 0.5) * 0.4, vy: 0.6 + Math.random() * 0.4, vx: (Math.random() - 0.5) * 0.2, vz: (Math.random() - 0.5) * 0.2, life: 1.2, size: 0.05, color: '#ffffff', gravity: -0.45, shrink: false });
       FW.Audio.setSizzle(inZone ? 1.35 : 1);
-      if (this.cook > 125) { if (this.state === 'cooking1') this.flip(); else this.open(); }
-      if (this.cook > 92 && Math.random() < dt * 7) this.fx.spawn({ x: this.ironG.position.x, y: this.TOP + 0.32, z: this.ironG.position.z, vy: 0.8, life: 1.4, size: 0.07, color: '#6a6a6a', gravity: -0.5, shrink: false });
+      this.ironG.rotation.z = Math.sin(this.t * 26) * 0.006 * (inZone ? 3 : 1);
+      if (this.cook > 118) this.flipOut();
+      if (this.cook > 88 && Math.random() < dt * 7) this.fx.spawn({ x: this.ironG.position.x, y: this.TOP + 0.32, z: this.ironG.position.z, vy: 0.8, life: 1.4, size: 0.07, color: '#6a6a6a', gravity: -0.5, shrink: false });
     }
     if (this.state === 'wait') {
       this.waitTimer -= dt;
@@ -675,8 +690,8 @@ FW.Kitchen = class {
       const t = this.toppingMeshes[k];
       if (t.userData.pop > 0) { t.userData.pop -= dt; const p = Math.max(0, t.userData.pop) / 0.3; const s = 0.62 * (1 + Math.sin(p * Math.PI) * 0.45); t.scale.setScalar(s); }
     }
-    if (this.plateWaffle.visible && this.state === 'topping' && !(this.drag && this.drag.obj === this.plateWaffle)) {
-      this.plateWaffle.position.y = this.plateWaffle.userData.home.y + Math.sin(this.t * 2.6) * 0.012;
+    if (this.plateWaffle.visible && this.state === 'topping' && !(this.drag && this.drag.obj === this.plateWaffle) && !this.tweens.some((t) => t.obj === this.plateWaffle)) {
+      this.plateWaffle.position.y = this.plateWaffle.userData.home.y + Math.sin(this.t * 2.6) * 0.014;
       this.plateWaffle.rotation.y += dt * 0.25;
     }
     // duck: springy idle, watches your cursor, flaps while you stir
@@ -689,9 +704,9 @@ FW.Kitchen = class {
     d.userData.head.rotation.y = U.damp(d.userData.head.rotation.y, U.clamp((lookX - 0.78) * 0.42, -0.85, 0.85), 8, dt);
     d.userData.head.rotation.x = U.damp(d.userData.head.rotation.x, 0.16 + (this.drag ? 0.1 : 0), 6, dt);
     const w = d.userData.wings;
-    if (this.state === 'whisking') { w[0].rotation.z = 1.0 + Math.sin(this.t * 20) * 0.45; w[1].rotation.z = -1.0 - Math.sin(this.t * 20 + 1) * 0.45; }
-    else if (this.state === 'cooking1' || this.state === 'cooking2') { w[0].rotation.z = 0.45 + Math.sin(this.t * 3.4) * 0.14; w[1].rotation.z = -w[0].rotation.z; }
-    else { w[0].rotation.z = U.damp(w[0].rotation.z, 0.1 + Math.sin(this.t * 1.6) * 0.1, 6, dt); w[1].rotation.z = -w[0].rotation.z; }
+    if (this.state === 'whisking') { w[0].rotation.z = -(0.9 + Math.sin(this.t * 20) * 0.4); w[1].rotation.z = 0.9 + Math.sin(this.t * 20 + 1) * 0.4; }
+    else if (this.state === 'cooking') { w[0].rotation.z = -(0.45 + Math.sin(this.t * 3.4) * 0.16); w[1].rotation.z = -w[0].rotation.z; }
+    else { w[0].rotation.z = U.damp(w[0].rotation.z, -(0.14 + Math.sin(this.t * 1.6) * 0.1), 6, dt); w[1].rotation.z = -w[0].rotation.z; }
     d.userData.prop.rotation.y += dt * (this.state === 'whisking' ? 9 : 2.2);
     if (d.userData.lolli) d.userData.lolli.rotation.z = -0.35 + Math.sin(this.t * 2.2) * 0.12;
     this.lights.forEach((l, i) => l.scale.setScalar(0.85 + 0.18 * Math.sin(this.t * 2.6 + i)));

@@ -67,7 +67,7 @@ FW.Pixel = (() => {
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.4 }, levels: { value: 24.0 }, vignette: { value: 0.32 }, warm: { value: 1.0 }, sat: { value: 1.22 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.4 }, levels: { value: 24.0 }, vignette: { value: 0.2 }, warm: { value: 1.0 }, sat: { value: 1.22 } } });
     brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.82 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);

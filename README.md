@@ -1,14 +1,22 @@
 # Flippin' Waffles 🧇🦆
 
 A cozy, cute **3D browser game**: you are a white duck in an apron and a helicopter
-beanie (with a lollipop) who runs a waffle delivery business in **Yosemitea National Park**.
+beanie (with a lollipop) who runs a waffle delivery business in **Yosemite Valley**.
 
-Cook each order by hand — drag the flour and sugar into the bowl, stir the whisk in
-circles, tip the batter onto the iron, flip it on the beat, drop the toppings where you
-like them — then load the box onto your scooter and race the valley Mario-Kart style:
-drift-boosting, hopping fences, grinding rails, launching off bouncy mushrooms, riding a
-banked wooden flume, cutting through a hollow sequoia, and quacking at the bears who
-want your waffles.
+The valley is laid out to follow the real place — a long east-west trough with the
+Merced meandering down the middle, Northside and Southside Drive along the floor,
+granite walls north and south, and El Capitan, Half Dome, Sentinel Rock, Yosemite
+Falls, Bridalveil, Mirror Lake, Camp 4, Curry Village and Glacier Point roughly where
+a map puts them. Traffic drives the loop, steel guardrails line the drops, and the HUD
+navigates you there like a maps app, route line and all.
+
+Cook each order by hand — drag the flour into the bowl, stir the whisk in circles, tip
+the batter onto the iron, flip it out on the beat, drop the toppings where you like them
+— then load the box onto your scooter and race the valley Mario-Kart style: drift-boosting,
+hopping fences, grinding guardrails, launching off bouncy mushrooms, riding a banked
+timber flume, cutting through a hollow sequoia, dodging cars, and quacking at the bears
+who want your waffles. The duck steers with a pair of very big wings that flare and
+bank as you turn.
 
 Everything is modelled and lit smoothly and roundly; the **pixel look is a filter** —
 the scene renders to a low-resolution buffer that gets bloomed, colour-quantised and
@@ -31,11 +39,10 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
 ### Kitchen — drag and drop
 | Action | How |
 |---|---|
-| Add flour / sugar / egg / milk | **drag** the ingredient into the bowl (match the ticket) |
+| Add flour / sugar / egg / milk | **drag** the ingredient into the bowl (the ticket lists only what this waffle needs) |
 | Stir | **drag the whisk in circles** inside the bowl, let go in the green zone |
 | Pour | **drag the bowl** over the waffle iron and it tips itself |
-| Flip the iron | **tap the iron** (or Space) when the meter is in the **golden zone** |
-| Open the iron | tap it again in the golden zone — early is pale, late is burnt |
+| Flip it out | **tap the iron** (or Space) when the meter is in the **golden zone** — one flip and the waffle somersaults onto the plate. Early is pale, late is burnt |
 | Toppings | **drag** them onto the waffle; they land where you drop them (drag one from the tray again to remove it) |
 | Box it | **drag the waffle** into the delivery box |
 
@@ -52,17 +59,24 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
 | Rescue when stuck | R |
 | Pause / mute | Esc / M |
 
-### Out in the park
-- **Boost pads** on the paved loop, **bouncy mushrooms** that fling you skyward.
-- **The flume** — a long banked wooden chute off the Glacier Point ridge. Gravity pulls
-  you to the middle; carve the walls to keep your speed.
-- **A hollow sequoia tunnel** and dirt shortcuts that are slower underfoot but shorter.
-- **A canyon gap** on the river shortcut: hit the boost pad, clear the jump, fly the ring.
+### Out in the valley
+- **Traffic** on Northside and Southside Drive — sedans, an RV, a shuttle bus, a ranger
+  pickup — plus full parking lots at the Village, Curry and Glacier Point. Hitting one hurts.
+- **Steel guardrails** along the river drops and the mountain road. They are also the best
+  grind rails in the park.
+- **Boost pads** on the drives, **bouncy mushrooms** that fling you skyward.
+- **The flume** — a long banked timber chute down the talus below Glacier Point. Gravity
+  pulls you to the middle; carve the walls to keep your speed.
+- **A hollow sequoia tunnel**, and dirt trails (Valley Loop, Four Mile, Mist) that are
+  slower underfoot but much shorter.
+- **A canyon gap** where the river crossing meets the Merced: hit the boost pad, clear
+  the jump, fly the ring.
 - **Air rings** for a boost, **syrup tokens** for coins, both worth style points that
   become tips at the end of a run.
 - **Bears** roam the meadows with their cubs and will chase you when you carry waffles.
   Honk to scare them off, or they take one.
-- A **radar minimap** shows the roads, your destination, nearby bears and tokens.
+- A **map card** in the corner: landcover, cased roads, the Merced, place labels, a
+  routed blue line along the roads to your drop-off, and a heading cone for you.
 
 ## Tech
 - Vanilla JavaScript + [Three.js](https://threejs.org) r158 (vendored in `vendor/`).
@@ -73,9 +87,15 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
   bright-pass bloom and a quantise + vignette pass at ~240 lines of vertical resolution.
 - **Springy animation.** A small spring solver drives squash-and-stretch, suspension
   travel, lean and every UI pop, so nothing moves on a plain linear lerp.
-- **Procedural world.** A heightfield valley with a river, granite rims, Half Dome and El
-  Capitan, waterfalls, roads rasterised into the terrain, bridges, a banked chute,
-  ramps, rails, campsites and ~1350 instanced trees.
+- **Procedural world.** A heightfield valley with the Merced meandering through it,
+  granite walls, Half Dome, El Capitan, Cathedral Rocks, Sentinel Rock, three waterfalls,
+  roads rasterised into the terrain, stone-parapet bridges, a banked chute, ramps, rails,
+  campsites, and a dark North American conifer forest of ~3500 instanced trees — firs,
+  ponderosas, cedars, sequoias, black oaks, snags, deadfall and ferns. Instances are
+  bucketed into a 6x6 grid so the camera and the shadow pass cull most of the forest
+  (about 390k triangles and 67 draw calls in a typical frame).
+- **Routing.** The roads form a weighted graph; Dijkstra over it draws the blue route
+  line on the map card, re-snapping as you drive.
 - **Procedural audio** (WebAudio): engine, quacks, sizzle, drift sparks, two chiptune loops.
 
 ```

@@ -88,8 +88,8 @@ FW.Kart = (() => {
         W.normalAt(this.pos.x, this.pos.z, _n);
         const along = _n.x * Math.sin(this.yaw) + _n.z * Math.cos(this.yaw);
         this.speed -= along * GRAV * 0.42 * dt;
-        this.speed -= this.speed * 0.16 * dt;                       // rolling drag
-        this.speed = U.clamp(this.speed, -REV_MAX * 1.6, MAX * 1.5); // never runaway downhill
+        this.speed -= this.speed * 0.22 * dt;                       // rolling drag
+        this.speed = U.clamp(this.speed, -REV_MAX * 1.6, MAX * 1.28); // never runaway downhill
       }
       let yawRate = 0;
       if (this.drift.active) {
@@ -217,6 +217,18 @@ FW.Kart = (() => {
           if (vn < 0) { this.vel.x -= 1.6 * vn * px; this.vel.z -= 1.6 * vn * pz; this.vel.multiplyScalar(0.45); }
           if (Math.abs(vn) > 4) { this.bonk(fx, 0.35); if (c.kind === 'tree') fx.burst(c.x, this.pos.y + 3, c.z, 9, { color: ['#3f8a57', '#5fae6e'], speed: 2, up: 1, life: 1.2, size: 0.18, extra: { gravity: 3 } }); }
           this.speed *= 0.4;
+        }
+      }
+      // cars are solid, and moving ones will shove you
+      for (const c of W.traffic) {
+        const dx = this.pos.x - c.x, dz = this.pos.z - c.z, d = Math.hypot(dx, dz), R = c.radius + 0.8;
+        if (d < R && d > 1e-4 && this.pos.y < W.groundY(c.x, c.z) + 2.4) {
+          const px = dx / d, pz = dz / d;
+          this.pos.x = c.x + px * R; this.pos.z = c.z + pz * R;
+          const vn = this.vel.x * px + this.vel.z * pz;
+          if (vn < 0) { this.vel.x -= 1.7 * vn * px; this.vel.z -= 1.7 * vn * pz; this.vel.multiplyScalar(0.4); }
+          if (Math.abs(vn) > 5) { this.bonk(fx, 0.4); FW.Audio.sfx.horn(); }
+          this.speed *= 0.35;
         }
       }
       for (const f of W.nearbyFences(nx, nz)) {
@@ -368,14 +380,28 @@ FW.Kart = (() => {
           case 'back': this.trickG.rotation.x = -a; break;
           default: this.trickG.rotation.z = a;
         }
-        wings[0].rotation.z = 1.1 + Math.sin(this.t * 30) * 0.5;
-        wings[1].rotation.z = -1.1 - Math.sin(this.t * 30) * 0.5;
-      } else if (!this.onGround && this.air > 0.3) {
-        wings[0].rotation.z = U.damp(wings[0].rotation.z, 0.75 + Math.sin(this.t * 18) * 0.25, 10, dt);
-        wings[1].rotation.z = -wings[0].rotation.z;
+        wings[0].rotation.z = -(1.25 + Math.sin(this.t * 30) * 0.4);
+        wings[1].rotation.z = 1.25 + Math.sin(this.t * 30) * 0.4;
+      } else if (!this.onGround && this.air > 0.25) {
+        // airborne: both wings up and beating
+        const flap = Math.sin(this.t * 16) * 0.26;
+        wings[0].rotation.z = U.damp(wings[0].rotation.z, -(1.0 + flap), 11, dt);
+        wings[1].rotation.z = U.damp(wings[1].rotation.z, 1.0 + flap, 11, dt);
+        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.22, 8, dt);
+        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.22, 8, dt);
+        wings[0].rotation.y = U.damp(wings[0].rotation.y, 0, 8, dt);
+        wings[1].rotation.y = U.damp(wings[1].rotation.y, 0, 8, dt);
       } else {
-        wings[0].rotation.z = U.damp(wings[0].rotation.z, 0.06 + spd * 0.12, 10, dt);
-        wings[1].rotation.z = -wings[0].rotation.z;
+        // on the road the wings work like ailerons: the outside one lifts,
+        // the inside one drops, and both trail back as you pick up speed
+        const base = 0.16 + spd * 0.2 + (this.drift.active ? 0.32 : 0);
+        const roll = steer * 0.62 + (this.drift.active ? this.drift.dir * 0.3 : 0);
+        wings[0].rotation.z = U.damp(wings[0].rotation.z, -U.clamp(base + roll, -0.35, 1.35), 12, dt);
+        wings[1].rotation.z = U.damp(wings[1].rotation.z, U.clamp(base - roll, -0.35, 1.35), 12, dt);
+        wings[0].rotation.y = U.damp(wings[0].rotation.y, -steer * 0.22 - spd * 0.3, 10, dt);
+        wings[1].rotation.y = U.damp(wings[1].rotation.y, -steer * 0.22 + spd * 0.3, 10, dt);
+        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.1, 8, dt);
+        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.1, 8, dt);
       }
       // the propeller: idles slowly, whirls with speed, goes wild in the air
       const propTarget = 4 + spd * 26 + (this.onGround ? 0 : 22) + (this.boost > 0 ? 18 : 0);

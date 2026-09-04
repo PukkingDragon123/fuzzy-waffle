@@ -10,14 +10,14 @@ FW.Orders = (() => {
     milk: { name: 'Milk', color: '#f2f6ff' },
   };
   const RECIPES = [
-    { id: 'classic', name: 'Classic', batter: { flour: 2, sugar: 1, egg: 1, milk: 1 }, toppings: ['butter', 'syrup'], hint: 'butter & syrup', price: 6 },
-    { id: 'berry', name: 'Berry Bliss', batter: { flour: 2, sugar: 1, egg: 1, milk: 1 }, toppings: ['strawberry', 'blueberry', 'cream'], hint: 'berries & cream', price: 8 },
-    { id: 'choco', name: 'Choco Cozy', batter: { flour: 2, sugar: 2, egg: 1, milk: 1 }, toppings: ['choco', 'cream'], hint: 'extra sweet · choco & cream', price: 8 },
-    { id: 'banana', name: 'Banana Sunrise', batter: { flour: 2, sugar: 1, egg: 1, milk: 1 }, toppings: ['banana', 'honey'], hint: 'banana & honey', price: 7 },
-    { id: 'fluffy', name: 'Fluffy Cloud', batter: { flour: 2, sugar: 1, egg: 2, milk: 1 }, toppings: ['cream', 'butter'], hint: 'double egg · cream & butter', price: 7 },
-    { id: 'sweet', name: 'Sweet Tooth', batter: { flour: 2, sugar: 3, egg: 1, milk: 1 }, toppings: ['syrup', 'choco', 'cream'], hint: 'triple sugar · the works', price: 9 },
-    { id: 'hearty', name: "Hiker's Hearty", batter: { flour: 3, sugar: 1, egg: 1, milk: 2 }, toppings: ['banana', 'blueberry'], hint: 'extra flour & milk · fruit', price: 8 },
-    { id: 'honeybear', name: 'Honey Bear', batter: { flour: 2, sugar: 2, egg: 1, milk: 1 }, toppings: ['honey', 'butter', 'banana'], hint: 'extra sweet · honey butter', price: 9 },
+    { id: 'classic', name: 'Classic', batter: { flour: 2, sugar: 1, egg: 0, milk: 0 }, toppings: ['butter', 'syrup'], hint: 'butter & syrup', price: 6 },
+    { id: 'berry', name: 'Berry Bliss', batter: { flour: 2, sugar: 0, egg: 0, milk: 1 }, toppings: ['strawberry', 'blueberry'], hint: 'berries', price: 7 },
+    { id: 'choco', name: 'Choco Cozy', batter: { flour: 2, sugar: 2, egg: 0, milk: 0 }, toppings: ['choco', 'cream'], hint: 'choco & cream', price: 8 },
+    { id: 'banana', name: 'Banana Sunrise', batter: { flour: 1, sugar: 0, egg: 1, milk: 1 }, toppings: ['banana', 'honey'], hint: 'banana & honey', price: 7 },
+    { id: 'fluffy', name: 'Fluffy Cloud', batter: { flour: 2, sugar: 0, egg: 2, milk: 0 }, toppings: ['cream', 'butter'], hint: 'cream & butter', price: 7 },
+    { id: 'sweet', name: 'Sweet Tooth', batter: { flour: 1, sugar: 2, egg: 0, milk: 1 }, toppings: ['syrup', 'choco'], hint: 'syrup & choco', price: 8 },
+    { id: 'hearty', name: "Hiker's Hearty", batter: { flour: 2, sugar: 0, egg: 1, milk: 1 }, toppings: ['banana', 'blueberry'], hint: 'fruit', price: 8 },
+    { id: 'honeybear', name: 'Honey Bear', batter: { flour: 2, sugar: 1, egg: 1, milk: 0 }, toppings: ['honey', 'butter'], hint: 'honey butter', price: 8 },
   ];
   const CUSTOMERS = [
     { name: 'Ranger Pip', kind: 'raccoon', acc: 'ranger', likes: ['classic', 'hearty'], quotes: ['Fuel for the trail!', 'Best waffles in the park, officially.'] },
@@ -27,7 +27,7 @@ FW.Orders = (() => {
     { name: 'Grandma Fern', kind: 'otter', acc: 'flower', likes: ['classic', 'honeybear'], quotes: ['Just like I used to make, dear.', 'You are such a sweet duck.'] },
     { name: 'Scout Wren', kind: 'squirrel', acc: 'cap', likes: ['sweet', 'choco'], quotes: ['Waffle badge: earned!', 'Did you see the bears? I saw the bears.'] },
   ];
-  const DESTS = ['meadow', 'glacier', 'halfdome', 'mirror', 'ranger', 'bridalveil', 'sequoia'];
+  const DESTS = ['elcap', 'camp4', 'village', 'curry', 'mirror', 'glacier', 'bridalveil'];
 
   let rand = U.rng(12345);
   function seed(s) { rand = U.rng(s); }
@@ -44,7 +44,7 @@ FW.Orders = (() => {
       waffles.push({ recipe: r });
     }
     const ids = DESTS.filter((d) => destInfo[d]);
-    const dId = day === 1 && index === 0 ? 'meadow' : U.pick(rand, ids);
+    const dId = day === 1 && index === 0 && destInfo.camp4 ? 'camp4' : U.pick(rand, ids);
     const dest = Object.assign({ id: dId }, destInfo[dId]);
     // generous, cozy time budget: cooking + travel
     const cookTime = 40 + 35 * n;
@@ -55,9 +55,9 @@ FW.Orders = (() => {
   function scoreWaffle(recipe, made) {
     // made: {counts, whisk (0..1), flip(0..1), cook(0..1), toppings:Set}
     let batter = 1;
-    for (const k of ['flour', 'sugar', 'egg', 'milk']) batter -= 0.22 * Math.abs((made.counts[k] || 0) - recipe.batter[k]);
+    for (const k of ['flour', 'sugar', 'egg', 'milk']) batter -= 0.26 * Math.abs((made.counts[k] || 0) - recipe.batter[k]);
     batter = U.clamp(batter, 0, 1) * (0.55 + 0.45 * made.whisk);
-    const cook = U.clamp(0.5 * made.flip + 0.5 * made.cook, 0, 1);
+    const cook = U.clamp(made.flip, 0, 1);
     const want = new Set(recipe.toppings), have = made.toppings;
     let inter = 0; for (const t of have) if (want.has(t)) inter++;
     const union = new Set([...want, ...have]).size;
@@ -65,7 +65,7 @@ FW.Orders = (() => {
     const quality = U.clamp(0.35 * batter + 0.35 * cook + 0.3 * tops, 0, 1);
     const notes = [];
     if (batter > 0.9) notes.push('Perfect batter!'); else if (batter > 0.6) notes.push('Batter a bit off.'); else notes.push('Hmm, that batter recipe...');
-    if (made.cook > 0.9 && made.flip > 0.9) notes.push('Perfectly golden!'); else if (made.doneness > 0.75) notes.push('Crispy... very crispy.'); else if (made.doneness < 0.3) notes.push('A little pale.'); else notes.push('Nicely cooked.');
+    if (made.flip > 0.92) notes.push('Perfectly golden!'); else if (made.doneness > 0.75) notes.push('Crispy... very crispy.'); else if (made.doneness < 0.3) notes.push('A little pale.'); else notes.push('Nicely cooked.');
     if (tops === 1) notes.push('Toppings spot on!'); else if (tops > 0.4) notes.push('Toppings almost right.'); else notes.push('Wrong toppings, oops.');
     return { batter, cook, tops, quality, notes, price: recipe.price };
   }

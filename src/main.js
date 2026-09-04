@@ -19,7 +19,7 @@
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } };
 
   const G = { state: 'title', order: null, results: [], stolen: 0, timer: 0, timerMax: 0, cookLeft: 1, modal: false, paused: false, dayOrders: 3, dayCoins: 0, dayLog: [], hype: 0, tokens: 0, titleT: 0, deliverT: 0, muted: false };
-  const START = { x: 0, z: 66, yaw: 0 };
+  const START = { x: 0, z: 62, yaw: 0 };
   const destInfo = () => { const o = {}; for (const [id, d] of Object.entries(W.destinations)) o[id] = { name: d.name, x: d.x, z: d.z, dist: d.dist }; return o; };
   FW.Orders.seed(1000 + save.day * 7 + save.orderIndex);
 
@@ -102,9 +102,10 @@
     bears.update(dt, kart, carrying());
     handleEvents();
     if (G.state === 'ride' || G.state === 'home') G.timer = Math.max(0, G.timer - dt);
-    const target = G.state === 'ride' ? W.destinations[G.order.dest.id] : { x: W.HOME.x, z: W.HOME.z + 8, name: 'Home', r: 9 };
+    const target = G.state === 'ride' ? W.destinations[G.order.dest.id] : { x: W.HOME.x, z: W.HOME.z, name: 'Waffle Shack', r: 10 };
     const dx = target.x - kart.pos.x, dz = target.z - kart.pos.z, dist = Math.hypot(dx, dz);
-    HUD.compass(true, -Math.PI / 2 - U.angleDiff(kart.cam.yaw, Math.atan2(dx, dz)), dist, target.name);
+    const secs = dist / Math.max(6, Math.abs(kart.speed) * 0.75 + 6);
+    HUD.nav(true, { angle: -Math.PI / 2 - U.angleDiff(kart.cam.yaw, Math.atan2(dx, dz)), name: target.name, dist, eta: secs < 60 ? `${Math.max(1, Math.round(secs))} sec` : `${Math.round(secs / 60)} min` });
     HUD.drift(true, Math.abs(kart.speed) * 3.6, kart.drift.active ? kart.drift.stage : 0, kart.boost > 0, `Style ${Math.floor(kart.trickPoints)}${kart.coins ? ` \u00b7 \ud83e\ude99 ${kart.coins}` : ''}`);
     updateMinimap(target);
     if (G.state === 'ride') HUD.timer(true, G.timer / G.timerMax, G.timer > 0 ? U.fmtTime(G.timer) : 'late… still tasty!');
@@ -112,15 +113,25 @@
     if (dist < (target.r || 7) && kart.controllable) { if (G.state === 'ride') deliver(); else arriveHome(); }
   }
   const mm = W.minimap;
+  let routePts = null, routeAt = 0;
   function updateMinimap(target) {
     if (!mm) return;
+    // recompute the route occasionally, like a nav app re-snapping to the road
+    if (G.state === 'ride' && (!routePts || W.time - routeAt > 2.5)) {
+      const r = W.route(kart.pos.x, kart.pos.z, G.order.dest.id);
+      routePts = r ? r.map(([x, z]) => mm.toMap(x, z)) : null;
+      routeAt = W.time;
+    }
+    if (G.state !== 'ride') routePts = null;
     HUD.minimap(true, {
       player: mm.toMap(kart.pos.x, kart.pos.z),
       yaw: kart.yaw,
       home: mm.toMap(W.HOME.x, W.HOME.z),
       dest: G.state === 'ride' ? mm.toMap(target.x, target.z) : null,
-      bears: bears.list.filter((b) => !b.cub && Math.hypot(b.x - kart.pos.x, b.z - kart.pos.z) < 90).map((b) => mm.toMap(b.x, b.z)),
-      tokens: W.tokens.filter((t) => !t.taken && Math.hypot(t.x - kart.pos.x, t.z - kart.pos.z) < 110).map((t) => mm.toMap(t.x, t.z)),
+      route: routePts,
+      bears: bears.list.filter((b) => !b.cub && Math.hypot(b.x - kart.pos.x, b.z - kart.pos.z) < 110).map((b) => mm.toMap(b.x, b.z)),
+      cars: W.traffic.map((c) => mm.toMap(c.x, c.z)),
+      tokens: W.tokens.filter((t) => !t.taken && Math.hypot(t.x - kart.pos.x, t.z - kart.pos.z) < 120).map((t) => mm.toMap(t.x, t.z)),
     });
   }
   function deliver() {
@@ -159,7 +170,7 @@
     if (hype > 0) { save.coins += hype; HUD.popup(`Hype tips: +${hype} coins!`, 'gold'); A.sfx.coin(); }
     save.orderIndex++; persist();
     await HUD.fade(1, 0.6);
-    HUD.compass(false); HUD.drift(false); HUD.minimap(false);
+    HUD.compass(false); HUD.drift(false); HUD.minimap(false); routePts = null;
     if (save.orderIndex >= G.dayOrders) daySummary(); else { nextOrder(); }
     await HUD.fade(0, 0.6);
   }
@@ -203,9 +214,9 @@
     switch (G.state) {
       case 'title': {
         G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
-        const a = G.titleT * 0.16, hy = W.groundY(0, 58);
-        camera.position.set(Math.sin(a) * 19, hy + 7.5 + Math.sin(G.titleT * 0.5) * 1.2, 58 + Math.cos(a) * 19);
-        camera.lookAt(0, hy + 3.2, 58); if (camera.fov !== 52) { camera.fov = 52; camera.updateProjectionMatrix(); }
+        const a = G.titleT * 0.14, hy = W.groundY(0, 66);
+        camera.position.set(Math.sin(a) * 27, hy + 12 + Math.sin(G.titleT * 0.5) * 1.2, 66 + Math.cos(a) * 27);
+        camera.lookAt(15, hy + 4.5, 66); if (camera.fov !== 52) { camera.fov = 52; camera.updateProjectionMatrix(); }
         break; }
       case 'kitchen': {
         kitchen.update(dt, Inp);
@@ -221,7 +232,7 @@
         G.deliverT += dt; kart.speed = U.damp(kart.speed, 0, 4, dt); kart.update(dt, { axis: () => 0, throttle: () => 0, held: () => false, pressed: () => false }, W, fx);
         kart.events.length = 0; bears.update(dt, kart, 0); bears.events.length = 0; W.update(dt, p, camera); kart.updateCamera(dt, camera, W);
         break; }
-      case 'summary': { W.update(dt, p, camera); kart.updateVisual(dt, 0, W); const a = W.time * 0.1, hy = W.groundY(0, 58); camera.position.set(Math.sin(a) * 18, hy + 7, 58 + Math.cos(a) * 18); camera.lookAt(0, hy + 3, 58); break; }
+      case 'summary': { W.update(dt, p, camera); kart.updateVisual(dt, 0, W); const a = W.time * 0.1, hy = W.groundY(0, 66); camera.position.set(Math.sin(a) * 32, hy + 18, 66 + Math.cos(a) * 32); camera.lookAt(0, hy + 4, 64); break; }
     }
     if (G.state !== 'ride' && G.state !== 'home' && G.state !== 'delivering') A.setEngine(false);
   }

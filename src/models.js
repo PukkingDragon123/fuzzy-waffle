@@ -31,7 +31,7 @@ FW.Models = (() => {
     const g = new THREE.SphereGeometry(r, wseg, hseg, opts && opts.phiS || 0, opts && opts.phiL || Math.PI * 2, opts && opts.thetaS || 0, opts && opts.thetaL || Math.PI);
     geoCache.set(k, g); return g;
   }
-  function capsule(r, len, seg = 8, rad = 10) {
+  function capsule(r, len, seg = 4, rad = 8) {
     const k = key('c', r, len, seg, rad); if (geoCache.has(k)) return geoCache.get(k);
     const g = new THREE.CapsuleGeometry(r, len, seg, rad); geoCache.set(k, g); return g;
   }
@@ -147,12 +147,10 @@ FW.Models = (() => {
     hp.push(p(roundedBox(0.14, 0.04, 0.15, 0.019), OD, 0, -0.055, 0.185, { rx: 0.06 }));
     hp.push(p(sphere(0.012, 6, 4), OD, -0.035, 0.015, 0.26));
     hp.push(p(sphere(0.012, 6, 4), OD, 0.035, 0.015, 0.26));
-    // eyes with catchlights
+    // simple dot eyes
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.045, 10, 8), P.eye, sx * 0.085, 0.06, 0.175, { sz: 0.7, mat: 'shiny' }));
-      hp.push(p(sphere(0.016, 6, 5), '#ffffff', sx * 0.072, 0.082, 0.208, { mat: 'glow' }));
-      hp.push(p(sphere(0.006, 5, 4), '#ffffff', sx * 0.101, 0.045, 0.206, { mat: 'glow' }));
-      hp.push(p(sphere(0.042, 8, 6), P.blush, sx * 0.155, 0.0, 0.13, { sz: 0.35, sy: 0.7 }));
+      hp.push(p(sphere(0.042, 10, 8), P.eye, sx * 0.088, 0.055, 0.178, { sz: 0.55, mat: 'matte' }));
+      hp.push(p(sphere(0.04, 8, 6), P.blush, sx * 0.158, -0.005, 0.132, { sz: 0.32, sy: 0.68 }));
     }
     head.add(build(hp));
     // helicopter beanie: four felt panels, a rim, a stalk and a propeller
@@ -171,14 +169,28 @@ FW.Models = (() => {
     head.add(prop);
     g.add(head);
 
-    // wings
+    // big wings — flat blades that work as the duck's steering surfaces
     const wings = [];
+    const bigW = opts.bigWings !== false;
     for (const sx of [-1, 1]) {
-      const w = new THREE.Group(); w.position.set(sx * 0.26, 0.42, 0.0);
-      w.add(build([
-        p(sphere(0.13, 10, 8), D, 0, -0.06, 0, { sx: 0.4, sy: 1.0, sz: 1.25, mat: 'soft' }),
-        p(sphere(0.09, 8, 6), DS, 0, -0.17, -0.03, { sx: 0.36, sy: 0.8, sz: 1.0, mat: 'soft' }),
-      ]));
+      const w = new THREE.Group(); w.position.set(sx * 0.2, 0.46, -0.02);
+      const wp = [];
+      if (bigW) {
+        // the blade reaches outward from the shoulder: long, thin, tapered
+        wp.push(p(sphere(0.2, 12, 8), D, sx * 0.2, -0.01, -0.01, { sx: 1.15, sy: 0.19, sz: 0.72, mat: 'soft' }));
+        wp.push(p(sphere(0.14, 10, 7), D, sx * 0.42, -0.03, -0.05, { sx: 1.0, sy: 0.2, sz: 0.62, mat: 'soft' }));
+        wp.push(p(sphere(0.1, 8, 6), DS, sx * 0.08, 0.01, 0.04, { sx: 1.0, sy: 0.5, sz: 0.9, mat: 'soft' }));
+        // primaries fanning back off the tip
+        for (let i = 0; i < 4; i++) {
+          const a = 0.12 + i * 0.2;
+          wp.push(p(cone(0.036, 0.26, 5), i % 2 ? DS : D, sx * (0.52 + i * 0.01), -0.045, -0.06 - i * 0.02,
+            { rz: sx * (Math.PI / 2 - a * 0.4), rx: -a, sy: 1, sz: 1.5, mat: 'soft' }));
+        }
+      } else {
+        wp.push(p(sphere(0.13, 10, 8), D, 0, -0.06, 0, { sx: 0.4, sy: 1.0, sz: 1.25, mat: 'soft' }));
+        wp.push(p(sphere(0.09, 8, 6), DS, 0, -0.17, -0.03, { sx: 0.36, sy: 0.8, sz: 1.0, mat: 'soft' }));
+      }
+      w.add(build(wp));
       g.add(w); wings.push(w);
     }
     // lollipop — carried in the beak, so it reads from every angle
@@ -268,11 +280,9 @@ FW.Models = (() => {
     head.add(build([
       p(sphere(0.34, 12, 9), C, 0, 0, 0, { sy: 0.94, mat: 'soft' }),
       p(sphere(0.19, 10, 8), P.muzzle, 0, -0.09, 0.24, { sz: 0.85, sy: 0.75, mat: 'soft' }),
-      p(sphere(0.07, 8, 6), '#2c2320', 0, -0.04, 0.38, { sy: 0.7, mat: 'shiny' }),
-      p(sphere(0.055, 8, 6), '#2c2320', -0.14, 0.09, 0.28, { mat: 'shiny' }),
-      p(sphere(0.055, 8, 6), '#2c2320', 0.14, 0.09, 0.28, { mat: 'shiny' }),
-      p(sphere(0.018, 5, 4), '#ffffff', -0.155, 0.11, 0.32, { mat: 'glow' }),
-      p(sphere(0.018, 5, 4), '#ffffff', 0.125, 0.11, 0.32, { mat: 'glow' }),
+      p(sphere(0.07, 8, 6), '#241d1b', 0, -0.04, 0.38, { sy: 0.7, mat: 'matte' }),
+      p(sphere(0.052, 8, 6), '#241d1b', -0.14, 0.09, 0.285, { sz: 0.6, mat: 'matte' }),
+      p(sphere(0.052, 8, 6), '#241d1b', 0.14, 0.09, 0.285, { sz: 0.6, mat: 'matte' }),
       p(sphere(0.13, 8, 6), C, -0.26, 0.26, -0.05, { sz: 0.5, mat: 'soft' }),
       p(sphere(0.13, 8, 6), C, 0.26, 0.26, -0.05, { sz: 0.5, mat: 'soft' }),
       p(sphere(0.08, 8, 6), P.muzzle, -0.27, 0.27, 0.0, { sz: 0.35, mat: 'soft' }),
@@ -321,11 +331,9 @@ FW.Models = (() => {
     const hp = [
       p(sphere(0.2, 12, 9), c.body, 0, 0, 0, { mat: 'soft' }),
       p(sphere(0.1, 8, 6), c.belly, 0, -0.05, 0.15, { sz: 0.7, sy: 0.7, mat: 'soft' }),
-      p(sphere(0.028, 6, 5), '#2c2320', 0, -0.02, 0.21, { mat: 'shiny' }),
-      p(sphere(0.038, 8, 6), '#2c2320', -0.085, 0.05, 0.165, { mat: 'shiny' }),
-      p(sphere(0.038, 8, 6), '#2c2320', 0.085, 0.05, 0.165, { mat: 'shiny' }),
-      p(sphere(0.013, 5, 4), '#ffffff', -0.095, 0.068, 0.192, { mat: 'glow' }),
-      p(sphere(0.013, 5, 4), '#ffffff', 0.075, 0.068, 0.192, { mat: 'glow' }),
+      p(sphere(0.028, 6, 5), '#241d1b', 0, -0.02, 0.21, { mat: 'matte' }),
+      p(sphere(0.036, 8, 6), '#241d1b', -0.086, 0.05, 0.17, { sz: 0.6, mat: 'matte' }),
+      p(sphere(0.036, 8, 6), '#241d1b', 0.086, 0.05, 0.17, { sz: 0.6, mat: 'matte' }),
     ];
     if (c.mask) { hp.push(p(sphere(0.075, 8, 6), c.mask, -0.085, 0.045, 0.155, { sz: 0.4, sy: 0.8 })); hp.push(p(sphere(0.075, 8, 6), c.mask, 0.085, 0.045, 0.155, { sz: 0.4, sy: 0.8 })); }
     if (c.ear === 'long') {
@@ -344,49 +352,90 @@ FW.Models = (() => {
     return g;
   }
 
-  // ---------- vegetation (geometries for instancing; ~1 unit = 1 m) ----------
+  // ---------- vegetation: a tall, dark North American conifer forest ----------
+  // Geometries are metres at scale 1 and get instanced in chunks by the world.
+  const FOL = { firA: '#2b5c41', firB: '#33694a', firC: '#3d7757', pineA: '#376d4a', pineB: '#427c58', cedar: '#265239', oak: '#4c7f44', seq: '#306849' };
+  const BARK = { fir: '#5a4636', pine: '#95693f', cedar: '#5c4633', oak: '#6a5643', seq: '#9c5433', snag: '#a89e93' };
+
+  // Douglas fir: a tall narrow spire, the backbone of the forest
+  const firGeo = () => {
+    const parts = [p(cyl(0.2, 0.46, 17, 6), BARK.fir, 0, 8.5, 0)];
+    const layers = [[2.6, 3.4, 3.6], [5.4, 3.2, 3.0], [8.1, 3.0, 2.4], [10.7, 2.8, 1.8], [13.1, 2.6, 1.25], [15.3, 2.4, 0.7]];
+    layers.forEach(([y, h, r], i) => parts.push(p(cone(r, h, 6), i % 3 === 0 ? FOL.firA : i % 3 === 1 ? FOL.firB : FOL.firC, 0, y + h / 2, 0)));
+    return geoOf(parts);
+  };
+  // Ponderosa pine: long clean trunk, canopy only up top
   const pineGeo = () => geoOf([
-    p(cyl(0.16, 0.28, 1.5, 8), P.trunk, 0, 0.75, 0),
-    p(sphere(1.5, 10, 7), P.pine[0], 0, 2.2, 0, { sy: 0.62 }),
-    p(sphere(1.25, 10, 7), P.pine[1], 0, 3.1, 0, { sy: 0.62 }),
-    p(sphere(0.95, 9, 6), P.pine[0], 0, 3.95, 0, { sy: 0.65 }),
-    p(sphere(0.62, 8, 6), P.pine[3], 0, 4.7, 0, { sy: 0.75 }),
-    p(sphere(0.3, 7, 5), P.pine[1], 0, 5.25, 0, { sy: 0.9 }),
+    p(cyl(0.26, 0.5, 15, 6), BARK.pine, 0, 7.5, 0),
+    p(sphere(2.5, 7, 4), FOL.pineA, 0, 14.2, 0, { sy: 0.62 }),
+    p(sphere(2.0, 6, 4), FOL.pineB, 1.4, 15.6, 0.5, { sy: 0.62 }),
+    p(sphere(1.8, 6, 4), FOL.pineA, -1.5, 15.3, -0.4, { sy: 0.62 }),
+    p(cone(1.3, 2.6, 6), FOL.pineB, 0, 17.6, 0),
   ]);
+  // Incense cedar: dense dark column
+  const cedarGeo = () => {
+    const parts = [p(cyl(0.24, 0.55, 12, 6), BARK.cedar, 0, 6, 0)];
+    for (let i = 0; i < 5; i++) { const y = 1.8 + i * 2.3, r = 2.5 - i * 0.4; parts.push(p(cone(r, 3.2, 6), i % 2 ? FOL.cedar : FOL.firA, 0, y + 1.6, 0)); }
+    return geoOf(parts);
+  };
   const sequoiaGeo = () => geoOf([
-    p(cyl(0.55, 1.15, 11, 10), P.sequoia, 0, 5.5, 0),
-    p(sphere(2.4, 10, 8), P.seqGreen, 0, 11.2, 0, { sy: 0.7 }),
-    p(sphere(1.9, 9, 7), P.seqGreen, 1.5, 12.4, 0.6, { sy: 0.7 }),
-    p(sphere(1.8, 9, 7), P.pine[1], -1.6, 12.2, -0.5, { sy: 0.7 }),
-    p(sphere(1.9, 9, 7), P.seqGreen, 0.2, 13.4, -0.4, { sy: 0.7 }),
-    p(sphere(1.4, 8, 6), P.pine[3], 0.1, 14.4, 0.5, { sy: 0.8 }),
+    p(cyl(0.9, 2.1, 22, 8), BARK.seq, 0, 11, 0),
+    p(cyl(2.1, 3.1, 3, 8), BARK.seq, 0, 1.5, 0),
+    p(sphere(3.6, 8, 5), FOL.seq, 0, 23.5, 0, { sy: 0.66 }),
+    p(sphere(2.9, 7, 4), FOL.firB, 2.2, 25.6, 0.8, { sy: 0.66 }),
+    p(sphere(2.7, 6, 4), FOL.seq, -2.3, 25.2, -0.7, { sy: 0.66 }),
+    p(cone(2.0, 4.4, 7), FOL.firC, 0, 28.6, 0),
   ]);
-  const aspenGeo = (gold) => geoOf([
-    p(cyl(0.1, 0.14, 2.6, 7), P.aspenTrunk, 0, 1.3, 0),
-    p(sphere(1.05, 9, 7), gold ? P.aspenGold : P.aspen, 0, 3.0, 0),
-    p(sphere(0.8, 8, 6), gold ? '#f0c268' : '#c9dd72', 0.5, 3.6, 0.3),
-    p(sphere(0.75, 8, 6), gold ? '#d8a044' : '#a8c94e', -0.5, 3.5, -0.3),
+  // California black oak: broad round canopy on the valley floor
+  const oakGeo = (gold) => geoOf([
+    p(cyl(0.3, 0.55, 4.6, 6), BARK.oak, 0, 2.3, 0),
+    p(cyl(0.1, 0.16, 1.6, 5), BARK.oak, 0.9, 4.6, 0.2, { rz: -0.75 }),
+    p(cyl(0.1, 0.16, 1.6, 5), BARK.oak, -0.9, 4.7, -0.3, { rz: 0.8 }),
+    p(sphere(2.5, 8, 5), gold ? '#c1953f' : FOL.oak, 0, 6.4, 0, { sy: 0.82 }),
+    p(sphere(1.9, 7, 4), gold ? '#d2ab52' : '#55884c', 1.7, 7.1, 0.7, { sy: 0.8 }),
+    p(sphere(1.8, 6, 4), gold ? '#b08838' : '#406b42', -1.8, 6.9, -0.6, { sy: 0.8 }),
   ]);
+  // dead standing snag — reads as old-growth forest
+  const snagGeo = () => geoOf([
+    p(cyl(0.18, 0.44, 11, 5), BARK.snag, 0, 5.5, 0),
+    p(cyl(0.07, 0.11, 1.5, 4), BARK.snag, 0.75, 7.4, 0.1, { rz: -0.9 }),
+    p(cyl(0.06, 0.09, 1.1, 4), BARK.snag, -0.6, 8.6, -0.2, { rz: 1.0 }),
+    p(cone(0.3, 0.9, 5), BARK.snag, 0, 11.4, 0),
+  ]);
+  // fallen log with a root plate
+  const deadfallGeo = () => geoOf([
+    p(cyl(0.42, 0.5, 7.5, 7), BARK.fir, 0, 0.46, 0, { rz: Math.PI / 2 }),
+    p(sphere(0.85, 6, 4), '#3d3026', -3.9, 0.6, 0, { sx: 0.4 }),
+    p(sphere(0.5, 6, 4), '#4c8a60', 0.6, 0.85, 0.1, { sy: 0.42 }),
+    p(sphere(0.42, 6, 4), FOL.firB, -1.4, 0.82, -0.15, { sy: 0.42 }),
+  ]);
+  // sword ferns on the forest floor
+  const fernGeo = () => {
+    const parts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      parts.push(p(cone(0.16, 0.8, 4), i % 2 ? '#3c7a58' : '#488a63', Math.cos(a) * 0.2, 0.36, Math.sin(a) * 0.2,
+        { rx: Math.sin(a) * 0.7, rz: -Math.cos(a) * 0.7, sx: 0.5, sz: 0.85 }));
+    }
+    return geoOf(parts);
+  };
   const bushGeo = () => geoOf([
-    p(sphere(0.62, 9, 7), P.pine[1], 0, 0.42, 0, { sy: 0.8 }),
-    p(sphere(0.45, 8, 6), P.pine[3], 0.42, 0.36, 0.2, { sy: 0.8 }),
-    p(sphere(0.4, 8, 6), P.pine[0], -0.4, 0.34, -0.2, { sy: 0.8 }),
-    p(sphere(0.09, 6, 5), '#ffb3b3', 0.2, 0.78, 0.3),
-    p(sphere(0.08, 6, 5), '#fff6a8', -0.25, 0.7, 0.25),
+    p(sphere(0.66, 7, 5), '#3a6f4e', 0, 0.44, 0, { sy: 0.78 }),
+    p(sphere(0.48, 6, 4), '#437c58', 0.44, 0.38, 0.22, { sy: 0.78 }),
+    p(sphere(0.42, 6, 4), '#2f6244', -0.42, 0.36, -0.22, { sy: 0.78 }),
   ]);
   const rockGeo = () => geoOf([
-    p(blob(0.85, 1), P.granite[0], 0, 0.45, 0, { sy: 0.75, sz: 0.9 }),
-    p(blob(0.5, 1), P.granite[1], 0.55, 0.3, 0.25, { sy: 0.8 }),
+    p(blob(0.85, 0), P.granite[0], 0, 0.45, 0, { sy: 0.75, sz: 0.9 }),
+    p(blob(0.5, 0), P.granite[1], 0.55, 0.3, 0.25, { sy: 0.8 }),
     p(blob(0.35, 0), P.granite[2], -0.5, 0.22, -0.3),
   ]);
   const flowerGeo = () => {
     const parts = [];
     const cols = ['#ffb3b3', '#fff6a8', '#c9a0f0', '#ffffff', '#ff8fa3'];
-    for (let i = 0; i < 5; i++) {
-      const a = i * 1.26, r = 0.12 + (i % 2) * 0.1, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      parts.push(p(cyl(0.012, 0.016, 0.22, 5), '#4f9a5c', x, 0.11, z));
-      parts.push(p(sphere(0.075, 7, 5), cols[i], x, 0.25, z, { sy: 0.55 }));
-      parts.push(p(sphere(0.032, 6, 4), P.gold, x, 0.28, z));
+    for (let i = 0; i < 3; i++) {
+      const a = i * 2.09, r = 0.12 + (i % 2) * 0.1, x = Math.cos(a) * r, z = Math.sin(a) * r;
+      parts.push(p(cyl(0.012, 0.016, 0.22, 4), '#4f9a5c', x, 0.11, z));
+      parts.push(p(sphere(0.075, 6, 4), cols[i], x, 0.25, z, { sy: 0.55 }));
     }
     return geoOf(parts);
   };
@@ -396,13 +445,63 @@ FW.Models = (() => {
     p(cyl(0.6, 0.62, 0.06, 12), '#c9463c', 0, 0.46, 0),
     ...[[0.3, 0, 0.2], [-0.28, 0.12, 0.22], [0.1, 0.3, 0.25], [-0.1, -0.3, 0.24], [0.35, -0.2, 0.15]].map(([x, z, y]) => p(sphere(0.1, 7, 5), '#fff3dc', x, 0.46 + y + 0.28, z, { sy: 0.5 })),
   ]);
-  const stumpGeo = () => geoOf([p(cyl(0.42, 0.5, 0.62, 10), P.trunk, 0, 0.31, 0), p(cyl(0.38, 0.38, 0.06, 10), '#c9a177', 0, 0.63, 0)]);
+  const stumpGeo = () => geoOf([p(cyl(0.5, 0.62, 0.8, 7), BARK.fir, 0, 0.4, 0), p(cyl(0.46, 0.46, 0.07, 7), '#b99a72', 0, 0.82, 0)]);
   const fenceGeo = (len = 3) => geoOf([
     p(capsule(0.075, 0.75), P.wood, -len / 2 + 0.1, 0.5, 0),
     p(capsule(0.075, 0.75), P.wood, len / 2 - 0.1, 0.5, 0),
     p(capsule(0.055, len - 0.5), P.wood2, 0, 0.42, 0, { rz: Math.PI / 2 }),
     p(capsule(0.055, len - 0.5), P.wood2, 0, 0.78, 0, { rz: Math.PI / 2 }),
   ]);
+  // steel W-beam highway guardrail — grindable, and very Yosemite roadside
+  const guardrailGeo = (len = 4) => geoOf([
+    p(roundedBox(len, 0.3, 0.07, 0.03), '#b8bec9', 0, 0.72, 0, { mat: 'metal' }),
+    p(roundedBox(len, 0.09, 0.11, 0.035), '#98a0ac', 0, 0.72, 0.02, { mat: 'metal' }),
+    p(roundedBox(0.11, 0.78, 0.11, 0.03), '#8d949f', -len / 2 + 0.2, 0.39, -0.03, { mat: 'metal' }),
+    p(roundedBox(0.11, 0.78, 0.11, 0.03), '#8d949f', len / 2 - 0.2, 0.39, -0.03, { mat: 'metal' }),
+  ]);
+
+  // ---------- cars ----------
+  const CAR_KINDS = {
+    sedan: { body: '#c8493f', roof: '#a83a32', w: 1.72, l: 4.3, h: 0.62, cab: 0.5, cabL: 2.0, cabZ: -0.1 },
+    wagon: { body: '#3f6fa8', roof: '#33578a', w: 1.78, l: 4.6, h: 0.66, cab: 0.58, cabL: 2.7, cabZ: -0.3 },
+    hatch: { body: '#e8e4da', roof: '#d4cfc2', w: 1.66, l: 3.9, h: 0.6, cab: 0.52, cabL: 1.9, cabZ: -0.15 },
+    ranger: { body: '#2f5d3a', roof: '#264c30', w: 1.9, l: 5.0, h: 0.78, cab: 0.62, cabL: 1.7, cabZ: 0.5, bed: true, bar: true },
+    rv: { body: '#efe9db', roof: '#d8d1c0', w: 2.1, l: 6.6, h: 1.5, cab: 0.5, cabL: 1.6, cabZ: 2.1, tall: true },
+    shuttle: { body: '#3c7d55', roof: '#f0ede4', w: 2.2, l: 7.4, h: 1.6, cab: 0.4, cabL: 1.5, cabZ: 2.6, tall: true, bus: true },
+  };
+  function car(kind = 'sedan') {
+    const c = CAR_KINDS[kind] || CAR_KINDS.sedan;
+    const g = new THREE.Group();
+    const parts = [];
+    const bodyY = 0.42 + c.h / 2;
+    parts.push(p(roundedBox(c.w, c.h, c.l, 0.2), c.body, 0, bodyY, 0, { mat: 'shiny' }));
+    if (c.tall) {
+      parts.push(p(roundedBox(c.w - 0.06, c.h * 0.5, c.l - 0.5, 0.14), c.roof, 0, bodyY + c.h * 0.62, -0.1, { mat: 'shiny' }));
+      parts.push(p(roundedBox(c.w - 0.14, 0.5, c.l * 0.62, 0.1), '#2b3138', 0, bodyY + c.h * 0.2, -0.4, { mat: 'shiny' }));
+      if (c.bus) for (let i = 0; i < 3; i++) parts.push(p(roundedBox(c.w + 0.02, 0.44, 1.5, 0.08), '#39414a', 0, bodyY + c.h * 0.22, -2.1 + i * 1.7, { mat: 'shiny' }));
+    } else {
+      parts.push(p(roundedBox(c.w - 0.22, c.cab, c.cabL, 0.22), c.roof, 0, bodyY + c.h / 2 + c.cab / 2 - 0.06, c.cabZ, { mat: 'shiny' }));
+      parts.push(p(roundedBox(c.w - 0.14, c.cab * 0.72, c.cabL * 0.92, 0.16), '#39414a', 0, bodyY + c.h / 2 + c.cab / 2 - 0.08, c.cabZ, { mat: 'shiny' }));
+    }
+    if (c.bed) parts.push(p(roundedBox(c.w - 0.14, 0.34, 2.0, 0.08), '#243d29', 0, bodyY + c.h / 2 + 0.1, -1.4));
+    if (c.bar) { parts.push(p(roundedBox(0.7, 0.12, 0.18, 0.05), '#f7c544', 0, bodyY + c.h / 2 + c.cab, c.cabZ, { mat: 'glow' })); }
+    // lights + plates
+    parts.push(p(roundedBox(0.34, 0.16, 0.06, 0.05), '#fff6d8', -c.w / 2 + 0.34, bodyY + 0.02, c.l / 2 - 0.02, { mat: 'glow' }));
+    parts.push(p(roundedBox(0.34, 0.16, 0.06, 0.05), '#fff6d8', c.w / 2 - 0.34, bodyY + 0.02, c.l / 2 - 0.02, { mat: 'glow' }));
+    parts.push(p(roundedBox(0.3, 0.14, 0.06, 0.05), '#d94a45', -c.w / 2 + 0.32, bodyY + 0.04, -c.l / 2 + 0.02, { mat: 'glow' }));
+    parts.push(p(roundedBox(0.3, 0.14, 0.06, 0.05), '#d94a45', c.w / 2 - 0.32, bodyY + 0.04, -c.l / 2 + 0.02, { mat: 'glow' }));
+    parts.push(p(roundedBox(c.w - 0.1, 0.12, 0.1, 0.04), '#8d949f', 0, bodyY - c.h / 2 + 0.02, c.l / 2, { mat: 'metal' }));
+    parts.push(p(roundedBox(c.w - 0.1, 0.12, 0.1, 0.04), '#8d949f', 0, bodyY - c.h / 2 + 0.02, -c.l / 2, { mat: 'metal' }));
+    // wheels
+    const wz = c.l / 2 - 0.9;
+    for (const sx of [-1, 1]) for (const z of [wz, -wz]) {
+      parts.push(p(torus(0.3, 0.12, 7, 12), '#2b2b30', sx * (c.w / 2 - 0.06), 0.42, z, { ry: Math.PI / 2, mat: 'soft' }));
+      parts.push(p(cyl(0.17, 0.17, 0.1, 10), '#c8ccd8', sx * (c.w / 2 - 0.04), 0.42, z, { rz: Math.PI / 2, mat: 'metal' }));
+    }
+    g.add(build(parts));
+    g.userData = { kind, len: c.l, wid: c.w, radius: Math.max(c.w, c.l * 0.42) * 0.5 + 0.35 };
+    return g;
+  }
 
   // ---------- waffle & toppings ----------
   function waffle(scale = 1) {
@@ -616,6 +715,6 @@ FW.Models = (() => {
 
   return { p, build, geoOf, mergeParts, roundedBox, sphere, capsule, cyl, cone, torus, blob, shade,
     duck, scooter, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
-    pineGeo, sequoiaGeo, aspenGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo,
+    firGeo, pineGeo, cedarGeo, sequoiaGeo, oakGeo, snagGeo, deadfallGeo, fernGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo, guardrailGeo, car, CAR_KINDS,
     shack, cabin, rangerStation, tent, campfire, picnicTable, signpost, marker, token, airRing, arrowSign };
 })();
