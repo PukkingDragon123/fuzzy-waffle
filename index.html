@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flippin' Waffles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Baloo+2:wght@500;700;800&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
@@ -20,6 +20,7 @@
   <div id="drift" class="hidden"><div class="speed"></div><div class="charge"><i></i><i></i><i></i></div><div class="tricks"></div></div>
   <div id="tooltip" class="hidden"></div>
   <div id="popups"></div>
+  <canvas id="minimap" class="hidden" width="168" height="168"></canvas>
   <div id="hint" class="hidden"></div>
   <div id="panel" class="hidden"><div class="paper inner"></div></div>
   <div id="title" class="hidden">
@@ -27,8 +28,9 @@
     <div class="tag">a cozy duck delivery adventure in Yosemitea National Park</div>
     <button id="start" class="btn big">Start Flippin'</button>
     <div class="controls">
-      <div><b>Kitchen</b> mouse · click ingredients · hold to whisk · Space = flip</div>
+      <div><b>Kitchen</b> drag ingredients into the bowl · stir the whisk in circles · tip the bowl onto the iron · tap it to flip · drag toppings on · drag the waffle into the box</div>
       <div><b>Scooter</b> WASD / arrows · Space = hop &amp; drift · Shift = trick in air · H = quack · R = rescue · M = mute · Esc = pause</div>
+      <div><b>Out there</b> boost pads · bouncy mushrooms · rails to grind · the flume · a hollow-log tunnel · rings and syrup tokens</div>
     </div>
     <div class="save"></div>
   </div>
@@ -37,7 +39,7 @@
 <script src="vendor/three.min.js"></script>
 <script src="src/util.js"></script>
 <script src="src/pixel.js"></script>
-<script src="src/voxel.js"></script>
+<script src="src/models.js"></script>
 <script src="src/audio.js"></script>
 <script src="src/hud.js"></script>
 <script src="src/orders.js"></script>

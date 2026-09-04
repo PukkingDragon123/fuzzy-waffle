@@ -72,6 +72,12 @@ FW.Audio = (() => {
     bell() { tone(880, 0.6, 'sine', 0.15); tone(1108, 0.6, 'sine', 0.1, { delay: 0.02 }); tone(1320, 0.8, 'sine', 0.08, { delay: 0.04 }); },
     stamp() { tone(200, 0.08, 'square', 0.15, { to: 120 }); noise(0.06, 0.15, { freq: 2000 }); },
     fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.22, 'square', 0.1, { delay: i * 0.11 })); },
+    boing() { tone(180, 0.35, 'sine', 0.28, { to: 900 }); tone(90, 0.3, 'triangle', 0.16, { to: 420, delay: 0.02 }); },
+    chime() { [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.35, 'sine', 0.11, { delay: i * 0.045 })); },
+    plop() { tone(300, 0.1, 'sine', 0.2, { to: 620 }); noise(0.06, 0.07, { freq: 1600 }); },
+    pick() { tone(720, 0.06, 'triangle', 0.12, { to: 980 }); },
+    stir() { noise(0.09, 0.05, { type: 'bandpass', freq: 1100 + Math.random() * 700, q: 3 }); },
+    clack() { tone(240, 0.09, 'square', 0.16, { to: 150 }); noise(0.05, 0.1, { freq: 2500 }); },
   };
 
   // ---- continuous: engine / grind / sizzle ----

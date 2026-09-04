@@ -12,8 +12,8 @@ FW.Bears = class {
     let px = x, pz = z, tries = 0;
     while (!this.walkable(px, pz) && tries < 40) { px = x + (Math.random() - 0.5) * 30; pz = z + (Math.random() - 0.5) * 30; tries++; }
     if (tries >= 40) return null;
-    const g = FW.Voxel.bear(cub ? 0.55 : 1, cub);
-    if (!cub) { const w = FW.Voxel.waffle(0.022); w.position.set(0, 0.05, 0.4); w.rotation.x = 0.6; w.visible = false; g.userData.head.add(w); g.userData.waffle = w; }
+    const g = FW.Models.bear(cub ? 0.6 : 1, cub);
+    if (!cub) { const w = FW.Models.waffle(0.42); w.position.set(0, -0.1, 0.42); w.rotation.x = 0.7; w.visible = false; g.userData.head.add(w); g.userData.waffle = w; }
     this.scene.add(g);
     const b = { g, x: px, z: pz, yaw: Math.random() * Math.PI * 2, state: 'idle', timer: Math.random() * 3, tx: px, tz: pz, cub, parent, phase: Math.random() * 6, anim: 0, moving: false, curSpeed: 0, hop: 0, home: { x: px, z: pz } };
     this.list.push(b);
@@ -71,12 +71,15 @@ FW.Bears = class {
         }
       }
       // pose
-      const gy = W.groundAt(b.x, b.z).y;
-      b.hop = Math.max(0, b.hop - dt);
-      b.g.position.set(b.x, gy + (b.hop > 0 ? Math.sin((b.hop / 0.5) * Math.PI) * 0.5 : 0), b.z);
-      b.g.rotation.y = b.yaw;
+      const gy = W.groundY(b.x, b.z);
       const sp = b.moving ? b.curSpeed : 0;
-      b.anim += dt * (sp * 2.2 + 0.001);
+      b.anim += dt * (sp * 2.4 + 0.001);
+      b.hop = Math.max(0, b.hop - dt);
+      const bob = b.moving ? Math.abs(Math.sin(b.anim * 0.5)) * 0.075 * Math.min(1, sp / 4) : 0;
+      b.g.position.set(b.x, gy + bob + (b.hop > 0 ? Math.sin((b.hop / 0.5) * Math.PI) * 0.6 : 0), b.z);
+      const wob = 1 + (b.hop > 0 ? Math.sin((b.hop / 0.5) * Math.PI) * 0.16 : 0) - bob * 0.5;
+      b.g.scale.set(b.cub ? 0.6 / Math.sqrt(wob) : 1 / Math.sqrt(wob), (b.cub ? 0.6 : 1) * wob, b.cub ? 0.6 / Math.sqrt(wob) : 1 / Math.sqrt(wob));
+      b.g.rotation.y = b.yaw;
       b.g.userData.legs.forEach((l, i) => { l.rotation.x = b.moving ? Math.sin(b.anim + (i % 2 ? Math.PI : 0) + (i < 2 ? 0 : Math.PI)) * 0.55 : FW.U.damp(l.rotation.x, 0, 8, dt); });
       const head = b.g.userData.head;
       head.rotation.x = b.state === 'eat' ? 0.35 + Math.sin(this.t * 6) * 0.08 : Math.sin(b.anim * 0.5) * 0.08 + (b.state === 'chase' ? -0.15 : 0);
