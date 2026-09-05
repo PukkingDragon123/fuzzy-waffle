@@ -24,9 +24,9 @@ FW.World = (() => {
   let customer = null, marker = null, chimneys = [], minimap = null;
 
   const timeStops = [
-    { zen: '#6fb3e8', hor: '#ffd9b0', sun: '#fff0d2', sunI: 4.7, hemiSky: '#cfe6fb', hemiGnd: '#7b8663', fog: '#e8d9be', amb: 0.95 },
-    { zen: '#4b98dc', hor: '#d2e8fb', sun: '#fffaf0', sunI: 5.2, hemiSky: '#dceffd', hemiGnd: '#88906a', fog: '#cfe2f2', amb: 1.15 },
-    { zen: '#4f4a94', hor: '#ffa46a', sun: '#ffab6c', sunI: 3.8, hemiSky: '#e2c3f5', hemiGnd: '#6a6b4e', fog: '#e8a878', amb: 0.8 },
+    { zen: '#5c93c9', hor: '#e8d3b4', sun: '#ffeacb', sunI: 3.1, hemiSky: '#b6cfe4', hemiGnd: '#6a6650', fog: '#cbd3d4', amb: 0.5 },
+    { zen: '#437fbe', hor: '#c4d8e6', sun: '#fff6e6', sunI: 3.5, hemiSky: '#c2d8ea', hemiGnd: '#77735a', fog: '#c2d2da', amb: 0.62 },
+    { zen: '#3c3f6b', hor: '#e0956a', sun: '#ffb277', sunI: 2.4, hemiSky: '#b9a8c9', hemiGnd: '#4e4c3e', fog: '#c9a58c', amb: 0.42 },
   ];
 
   // ---------------- terrain ----------------
@@ -234,9 +234,7 @@ FW.World = (() => {
     let c;
     switch (surf) {
       case SURF.ROAD: c = P.road[Math.floor(r * 3)]; break;
-      case SURF.JOINT: c = P.joint; break;
-      case SURF.EDGE: c = P.line; break;
-      case SURF.LINE: c = P.lineY; break;
+      case SURF.JOINT: case SURF.EDGE: case SURF.LINE: c = P.road[Math.floor(r * 3)]; break;
       case SURF.DIRT: c = P.dirt[Math.floor(r * 3)]; break;
       case SURF.SHOULDER: c = P.shoulder; break;
       case SURF.SAND: c = P.sand; break;
@@ -261,15 +259,16 @@ FW.World = (() => {
   }
   function buildTerrainMesh() {
     const tris = N * N * 2;
-    const pos = new Float32Array(tris * 9), nor = new Float32Array(tris * 9), col = new Float32Array(tris * 9);
-    let k = 0;
+    const pos = new Float32Array(tris * 9), nor = new Float32Array(tris * 9), col = new Float32Array(tris * 9), uv = new Float32Array(tris * 6);
+    let k = 0, k2 = 0;
     const n = new THREE.Vector3();
     const put = (x, y, z, ix, iz, c) => {
       vertNormal(ix, iz, n);
       pos[k] = x; pos[k + 1] = y; pos[k + 2] = z;
       nor[k] = n.x; nor[k + 1] = n.y; nor[k + 2] = n.z;
       col[k] = c.r; col[k + 1] = c.g; col[k + 2] = c.b;
-      k += 3;
+      uv[k2] = x / 7; uv[k2 + 1] = z / 7;
+      k += 3; k2 += 2;
     };
     for (let iz = 0; iz < N; iz++) for (let ix = 0; ix < N; ix++) {
       const x0 = -HALF + ix * CELL, z0 = -HALF + iz * CELL, x1 = x0 + CELL, z1 = z0 + CELL;
@@ -283,7 +282,8 @@ FW.World = (() => {
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    terrainMesh = new THREE.Mesh(g, FW.Pixel.vmat({ roughness: 0.97 }));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    terrainMesh = new THREE.Mesh(g, FW.Pixel.vmat({ roughness: 0.98, map: FW.Pixel.groundDetail(), envMapIntensity: 0.35 }));
     terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
   }
@@ -669,6 +669,41 @@ FW.World = (() => {
     trail('elcapmeadow', 6, roadsById.elcapmeadow.length - 6, 5);
   }
 
+  // ---------------- road surfaces ----------------
+  // A textured ribbon follows every road: worn asphalt with baked lane markings
+  // for the drives, packed dirt for the trails.
+  function buildRoadSurfaces() {
+    const MAIN = new Set(['northside', 'southside']);
+    for (const [id, r] of Object.entries(roadsById)) {
+      const dirt = r.def.type === 'dirt';
+      const half = dirt ? 2.6 : 4.9;
+      const sm = r.samples;
+      if (sm.length < 2) continue;
+      const pos = [], uvs = [], nor = [], idx = [];
+      let run = 0;
+      for (let i = 0; i < sm.length; i++) {
+        const q = sm[i];
+        if (i) run += Math.hypot(q.x - sm[i - 1].x, q.z - sm[i - 1].z);
+        const px = -q.tz, pz = q.tx;
+        const y = q.y + 0.035;
+        pos.push(q.x + px * half, y, q.z + pz * half, q.x - px * half, y, q.z - pz * half);
+        const v = run / (dirt ? 6 : 9);
+        uvs.push(0, v, 1, v);
+        nor.push(0, 1, 0, 0, 1, 0);
+        if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setIndex(idx);
+      const tex = FW.Pixel.roadTexture(dirt ? 'dirt' : MAIN.has(id) ? 'centre' : 'plain');
+      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: tex, roughness: dirt ? 0.99 : 0.9, metalness: 0, envMapIntensity: 0.3, polygonOffset: true, polygonOffsetFactor: -3 }));
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    }
+  }
+
   // ---------------- roadside signage ----------------
   function signAt(roadId, sMeters, side, kind, text, opts) {
     const r = roadsById[roadId];
@@ -714,7 +749,7 @@ FW.World = (() => {
     grd.addColorStop(0, 'rgba(255,255,255,.55)'); grd.addColorStop(0.55, 'rgba(255,255,255,.22)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.42, toneMapped: false });
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.3, toneMapped: false });
     for (let i = 0; i < 16; i++) {
       const x = (rand() - 0.5) * 380, z = riverZ(x) + (rand() - 0.5) * 90;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
@@ -729,7 +764,7 @@ FW.World = (() => {
     const N2 = 260, pos = new Float32Array(N2 * 3);
     for (let i = 0; i < N2; i++) { pos[i * 3] = (rand() - 0.5) * 60; pos[i * 3 + 1] = rand() * 14; pos[i * 3 + 2] = (rand() - 0.5) * 60; }
     g2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    motes = new THREE.Points(g2, new THREE.PointsMaterial({ color: '#fff3d8', size: 0.13, sizeAttenuation: true, transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false }));
+    motes = new THREE.Points(g2, new THREE.PointsMaterial({ color: '#fff3d8', size: 0.1, sizeAttenuation: true, transparent: true, opacity: 0.28, depthWrite: false, toneMapped: false }));
     motes.frustumCulled = false;
     scene.add(motes);
   }
@@ -797,14 +832,14 @@ FW.World = (() => {
     sky.renderOrder = -10; scene.add(sky);
     sunDisc = new THREE.Mesh(new THREE.CircleGeometry(40, 16), new THREE.MeshBasicMaterial({ color: '#fff6d8', fog: false, toneMapped: false }));
     scene.add(sunDisc);
-    sun = new THREE.DirectionalLight(0xffffff, 3.5);
+    sun = new THREE.DirectionalLight(0xffffff, 3.1);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 10; sc.far = 300;
-    sun.shadow.bias = -0.0009; sun.shadow.normalBias = 0.05; sun.shadow.radius = 2.4;
+    sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3.2;
     scene.add(sun, sun.target);
-    fill = new THREE.DirectionalLight('#b9d4f2', 0.75); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
-    hemi = new THREE.HemisphereLight(0xcfe6fb, 0x7b8663, 0.95); scene.add(hemi);
-    scene.fog = new THREE.Fog(0xe8d9be, 120, 400);
+    fill = new THREE.DirectionalLight('#9fb8d4', 0.3); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
+    hemi = new THREE.HemisphereLight(0xb6cfe4, 0x6a6650, 0.5); scene.add(hemi);
+    scene.fog = new THREE.FogExp2(0xcbd3d4, 0.0042);
     scene.environment = FW.Pixel.envOutdoor;
     for (let i = 0; i < 14; i++) {
       const g = new THREE.Group(), n = 3 + Math.floor(rand() * 3);
@@ -997,7 +1032,7 @@ FW.World = (() => {
     return g;
   }
   function buildWater() {
-    water = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE, 1, 1), FW.Pixel.mat(P.water, { transparent: true, opacity: 0.8, roughness: 0.09, metalness: 0.18, envMapIntensity: 1.6 }));
+    water = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE, 1, 1), FW.Pixel.mat(P.water, { transparent: true, opacity: 0.86, roughness: 0.06, metalness: 0.35, envMapIntensity: 1.9 }));
     water.rotation.x = -Math.PI / 2; water.position.y = WATER_Y; water.receiveShadow = true; scene.add(water);
     animated.push({ update: (dt, t) => { water.position.y = WATER_Y + Math.sin(t * 1.3) * 0.06; } });
   }
@@ -1145,6 +1180,7 @@ FW.World = (() => {
     buildBuildings();
     buildBarriers();
     buildTraffic();
+    buildRoadSurfaces();
     buildSigns();
     buildAtmosphere();
     const spots = [[-46, 22], [-40, 16], [30, -22], [24, -28], [104, 30], [110, 24], [-96, 60], [166, -40], [70, -96], [-158, -70], [-152, -76], [122, 96]];

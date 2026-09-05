@@ -9,7 +9,7 @@ FW.Pixel = (() => {
   let pmrem = null, envOutdoor = null, envIndoor = null;
   const size = { W: 320, H: 180, aspect: 16 / 9, scale: 3, w: 1280, h: 720 };
   const PIXEL = 3.4;           // on-screen size of one rendered pixel
-  const MAXH = 640;            // never render taller than this internally
+  const MAXH = 1440;           // cap the internal buffer on very tall displays
 
   // ---------- shaders ----------
   const VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -46,10 +46,10 @@ FW.Pixel = (() => {
       vec3 gain = vec3(1.020, 1.000, 0.960);
       c = (c + lift * (1.0 - c)) * mix(vec3(1.0), gain, warm);
       c = clamp(c, 0.0, 1.0);
-      // quantise (the "pixel art palette" half of the filter), with a touch of ordered dither
-      vec2 p = floor(gl_FragCoord.xy);
-      float d = mod(p.x + mod(p.y, 2.0) * 2.0, 4.0) / 4.0 - 0.375;
-      c = floor(c * levels + 0.5 + d * 0.7) / levels;
+      // fine film grain instead of colour quantisation
+      vec2 p = gl_FragCoord.xy;
+      float g = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+      c += (g - 0.5) * 0.016;
       float v = distance(vUv, vec2(0.5)) ;
       c *= 1.0 - vignette * smoothstep(0.42, 0.95, v);
       gl_FragColor = vec4(c, 1.0);
@@ -57,17 +57,17 @@ FW.Pixel = (() => {
 
   function init(canvas) {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
-    renderer.setPixelRatio(1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 0.98;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.34 }, levels: { value: 52.0 }, vignette: { value: 0.16 }, warm: { value: 1.0 }, sat: { value: 1.22 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.26 }, levels: { value: 52.0 }, vignette: { value: 0.26 }, warm: { value: 1.0 }, sat: { value: 1.04 } } });
     brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.82 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
@@ -111,15 +111,16 @@ FW.Pixel = (() => {
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     size.w = w; size.h = h;
-    // a light pixel filter: render near half resolution, not a chunky mosaic
-    size.scale = Math.max(1, Math.min(3, Math.round(h / 460)));
-    size.H = Math.min(MAXH, Math.ceil(h / size.scale));
+    // full resolution: no pixel filter any more, just a filmic composite
+    size.scale = 1;
+    size.H = Math.min(MAXH, h);
     size.scale = h / size.H;
     size.W = Math.ceil(w / size.scale);
     size.aspect = size.W / size.H;
     renderer.setSize(w, h, false);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     for (const t of [rt, brightRT, blurA, blurB]) if (t) t.dispose();
-    const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType, colorSpace: THREE.SRGBColorSpace, depthBuffer: true };
+    const opts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, type: THREE.HalfFloatType, colorSpace: THREE.SRGBColorSpace, depthBuffer: true, samples: 2 };
     rt = new THREE.WebGLRenderTarget(size.W, size.H, opts);
     const bw = Math.max(8, Math.floor(size.W / 2)), bh = Math.max(8, Math.floor(size.H / 2));
     const bopts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, type: THREE.HalfFloatType, colorSpace: THREE.SRGBColorSpace, depthBuffer: false };
@@ -306,6 +307,106 @@ FW.Pixel = (() => {
     for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(120,118,112,${0.1 + Math.random() * 0.25})`; g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 1 + Math.random() * 2.6, 0, 7); g.fill(); }
     return c;
   }, 1, 1);
+  // fine grain that multiplies the terrain's vertex colours, so ground reads as
+  // a real surface instead of flat polygons
+  const groundDetail = () => repeatTex('grain', () => {
+    const S = 512, { c, g } = noiseCanvas(S, '#ffffff', 26000, 0.34);
+    for (let i = 0; i < 900; i++) {
+      g.fillStyle = `rgba(${120 + Math.random() * 80 | 0},${120 + Math.random() * 80 | 0},${110 + Math.random() * 70 | 0},${0.05 + Math.random() * 0.2})`;
+      g.beginPath(); g.ellipse(Math.random() * S, Math.random() * S, 2 + Math.random() * 9, 1 + Math.random() * 5, Math.random() * 3, 0, 7); g.fill();
+    }
+    for (let i = 0; i < 40; i++) {
+      g.strokeStyle = `rgba(90,88,84,${0.05 + Math.random() * 0.12})`; g.lineWidth = 1 + Math.random() * 2;
+      g.beginPath(); let x = Math.random() * S, y = Math.random() * S; g.moveTo(x, y);
+      for (let k = 0; k < 6; k++) { x += (Math.random() - 0.5) * 90; y += (Math.random() - 0.5) * 90; g.lineTo(x, y); }
+      g.stroke();
+    }
+    return c;
+  });
+  // worn asphalt with baked lane markings; tiles along the length of a road
+  function roadTexture(kind) {
+    return repeatTex('road' + kind, () => {
+      const W = 512, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      g.fillStyle = kind === 'dirt' ? '#7c6a52' : '#43423f'; g.fillRect(0, 0, W, H);
+      // aggregate
+      for (let i = 0; i < 42000; i++) {
+        const v = Math.random();
+        g.fillStyle = kind === 'dirt'
+          ? `rgba(${120 + v * 70 | 0},${100 + v * 60 | 0},${74 + v * 50 | 0},${0.12 + Math.random() * 0.4})`
+          : `rgba(${90 + v * 90 | 0},${90 + v * 88 | 0},${88 + v * 84 | 0},${0.05 + Math.random() * 0.32})`;
+        g.fillRect(Math.random() * W, Math.random() * H, 1 + Math.random() * 2.4, 1 + Math.random() * 2.4);
+      }
+      // patches and cracks
+      for (let i = 0; i < 26; i++) {
+        g.fillStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.09})`;
+        g.beginPath(); g.ellipse(Math.random() * W, Math.random() * H, 20 + Math.random() * 90, 14 + Math.random() * 60, Math.random() * 3, 0, 7); g.fill();
+      }
+      if (kind !== 'dirt') {
+        g.strokeStyle = 'rgba(20,20,20,.5)'; g.lineCap = 'round';
+        for (let i = 0; i < 16; i++) {
+          g.lineWidth = 1 + Math.random() * 2.2;
+          let x = Math.random() * W, y = Math.random() * H; g.beginPath(); g.moveTo(x, y);
+          for (let k = 0; k < 7; k++) { x += (Math.random() - 0.5) * 70; y += (Math.random() - 0.5) * 120; g.lineTo(x, y); }
+          g.stroke();
+        }
+        // tyre polish in the wheel tracks
+        for (const cx of [W * 0.29, W * 0.71]) {
+          const grd = g.createLinearGradient(cx - 46, 0, cx + 46, 0);
+          grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(0.5, 'rgba(0,0,0,.16)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = grd; g.fillRect(cx - 46, 0, 92, H);
+        }
+        // edge lines and centre dashes, baked so they tile
+        g.fillStyle = 'rgba(226,226,218,.82)';
+        g.fillRect(W * 0.055, 0, 7, H); g.fillRect(W * 0.94, 0, 7, H);
+        if (kind === 'centre') {
+          g.fillStyle = 'rgba(224,186,66,.85)';
+          for (let y = 0; y < H; y += 128) g.fillRect(W / 2 - 4, y + 18, 8, 78);
+        }
+        // grime at the shoulders
+        const gr = g.createLinearGradient(0, 0, W, 0);
+        gr.addColorStop(0, 'rgba(60,54,42,.5)'); gr.addColorStop(0.12, 'rgba(60,54,42,0)');
+        gr.addColorStop(0.88, 'rgba(60,54,42,0)'); gr.addColorStop(1, 'rgba(60,54,42,.5)');
+        g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      }
+      return c;
+    });
+  }
+  // the character's face: 2D eyes and mouth that swap for expressions
+  const _faces = {};
+  function faceTexture(expr) {
+    if (_faces[expr]) return _faces[expr];
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, S, S);
+    const ink = '#221b18';
+    const EY = 96, EX = 62, R = 21;
+    const dot = (x, y, r, sq = 1) => { g.fillStyle = ink; g.beginPath(); g.ellipse(x, y, r, r * sq, 0, 0, 7); g.fill(); };
+    const arc = (x, y, r, up) => { g.strokeStyle = ink; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath(); g.arc(x, y + (up ? r * 0.6 : -r * 0.6), r, up ? Math.PI : 0, up ? 0 : Math.PI); g.stroke(); };
+    const brow = (x, y, a) => { g.strokeStyle = ink; g.lineWidth = 10; g.lineCap = 'round'; g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(-22, 0); g.lineTo(22, 0); g.stroke(); g.restore(); };
+    const mouth = (kind) => {
+      g.strokeStyle = ink; g.lineWidth = 11; g.lineCap = 'round'; g.fillStyle = ink;
+      const my = 176;
+      if (kind === 'smile') { g.beginPath(); g.arc(S / 2, my - 14, 26, 0.25, Math.PI - 0.25); g.stroke(); }
+      else if (kind === 'open') { g.beginPath(); g.ellipse(S / 2, my, 20, 24, 0, 0, 7); g.fill(); }
+      else if (kind === 'grin') { g.beginPath(); g.arc(S / 2, my - 20, 34, 0.3, Math.PI - 0.3); g.stroke(); }
+      else if (kind === 'flat') { g.beginPath(); g.moveTo(S / 2 - 22, my); g.lineTo(S / 2 + 22, my); g.stroke(); }
+      else if (kind === 'frown') { g.beginPath(); g.arc(S / 2, my + 22, 24, Math.PI + 0.3, -0.3); g.stroke(); }
+    };
+    switch (expr) {
+      case 'happy': arc(S / 2 - EX, EY, 20, true); arc(S / 2 + EX, EY, 20, true); mouth('smile'); break;
+      case 'joy': arc(S / 2 - EX, EY, 22, true); arc(S / 2 + EX, EY, 22, true); mouth('grin'); break;
+      case 'focus': dot(S / 2 - EX, EY, R, 0.62); dot(S / 2 + EX, EY, R, 0.62); brow(S / 2 - EX, EY - 34, 0.26); brow(S / 2 + EX, EY - 34, -0.26); mouth('flat'); break;
+      case 'worry': dot(S / 2 - EX, EY + 4, R * 0.92); dot(S / 2 + EX, EY + 4, R * 0.92); brow(S / 2 - EX, EY - 32, -0.34); brow(S / 2 + EX, EY - 32, 0.34); mouth('frown'); break;
+      case 'surprise': dot(S / 2 - EX, EY - 2, R * 1.2); dot(S / 2 + EX, EY - 2, R * 1.2); brow(S / 2 - EX, EY - 44, -0.1); brow(S / 2 + EX, EY - 44, 0.1); mouth('open'); break;
+      case 'blink': arc(S / 2 - EX, EY, 19, false); arc(S / 2 + EX, EY, 19, false); mouth('smile'); break;
+      case 'sad': dot(S / 2 - EX, EY + 6, R * 0.9); dot(S / 2 + EX, EY + 6, R * 0.9); brow(S / 2 - EX, EY - 30, -0.4); brow(S / 2 + EX, EY - 30, 0.4); mouth('frown'); break;
+      default: dot(S / 2 - EX, EY, R); dot(S / 2 + EX, EY, R); mouth('smile');
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    _faces[expr] = t; return t;
+  }
   function signTexture(kind, text) {
     const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
     const g = c.getContext('2d');
@@ -387,7 +488,7 @@ FW.Pixel = (() => {
   }
 
   return { init, render, size, fam, mat, vmat, flat, textTexture, stripeTexture, chevronTexture, spiralTexture,
-    foliageTexture, UVCELL, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas,
+    foliageTexture, UVCELL, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
     get renderer() { return renderer; }, get envOutdoor() { return envOutdoor; }, get envIndoor() { return envIndoor; } };
 })();
 
@@ -400,8 +501,8 @@ FW.PAL = {
   mint: '#7fd1c0', mintDark: '#5cb6a5', steel: '#c8ccd8', cream: '#fff3dc', red: '#e5564a', gold: '#f7c544', brown: '#8a5a2b', wood: '#b07c4a', wood2: '#96663a',
   bear: '#7a5334', bearLight: '#9b7250', muzzle: '#d8b489', tan: '#c9a177',
   pine: ['#2f6b4a', '#3f8a57', '#256045', '#5fae6e'], trunk: '#7a5334', sequoia: '#9c5636', seqGreen: '#356f4d', aspen: '#b9d35a', aspenGold: '#e8b04b', aspenTrunk: '#efe9dc',
-  granite: ['#b3aec2', '#c2bccd', '#a49eb4'], snow: '#f6f7fb',
-  grass: ['#6fb74e', '#75bc52', '#7cc257', '#6ab24d'], dirt: ['#c09161', '#b3855a', '#cb9c6b'], road: ['#9d9a94', '#a4a19b', '#96938d'], joint: '#7c7a75', shoulder: '#8d8981', line: '#d9d6cd', lineY: '#d8b23f', sand: '#e6d8ab', water: '#5cb3e8', riverbed: '#7e9a70',
+  granite: ['#9a958f', '#a5a09a', '#8d8882'], snow: '#eef1f4',
+  grass: ['#5c7f3e', '#638745', '#6a8f4a', '#587a3b'], dirt: ['#c09161', '#b3855a', '#cb9c6b'], road: ['#9d9a94', '#a4a19b', '#96938d'], joint: '#7c7a75', shoulder: '#8d8981', line: '#d9d6cd', lineY: '#d8b23f', sand: '#e6d8ab', water: '#5cb3e8', riverbed: '#7e9a70',
   tent: ['#f0872a', '#3aa6a6', '#e5564a', '#8f6cd0', '#4f9a5c'],
   syrup: '#8a4b1a', butter: '#ffdf7e',
 };

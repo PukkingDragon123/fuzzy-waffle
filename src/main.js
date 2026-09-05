@@ -45,7 +45,7 @@
     G.results = []; G.stolen = 0;
     W.setTimeOfDay([0.12, 0.5, 0.9][save.orderIndex % 3]);
     G.state = 'kitchen'; G.timer = G.timerMax = G.order.cookTime;
-    HUD.touchControls(false); HUD.mess(0);
+    HUD.touchControls(false); HUD.mess(0); HUD.data.nav = null;
     HUD.hideAll(); HUD.stats(save); HUD.ticket(G.order, { index: 0, made: [], counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, toppings: new Set() });
     kitchen.onProgress = (p) => HUD.ticket(G.order, p);
     kitchen.onDone = (made, messCount) => { G.results = made; G.messes = messCount || 0; G.cookLeft = U.clamp(G.timer / G.timerMax, 0, 1); setTimeout(startRide, 600); };
@@ -109,7 +109,8 @@
     const dx = target.x - kart.pos.x, dz = target.z - kart.pos.z, dist = Math.hypot(dx, dz);
     const secs = dist / Math.max(6, Math.abs(kart.speed) * 0.75 + 6);
     HUD.nav(true, { angle: -Math.PI / 2 - U.angleDiff(kart.cam.yaw, Math.atan2(dx, dz)), name: target.name, dist, eta: secs < 60 ? `${Math.max(1, Math.round(secs))} sec` : `${Math.round(secs / 60)} min` });
-    HUD.drift(true, Math.abs(kart.speed) * 3.6, kart.drift.active ? kart.drift.stage : 0, kart.boost > 0, `Style ${Math.floor(kart.trickPoints)}${kart.coins ? ` \u00b7 \ud83e\ude99 ${kart.coins}` : ''}`);
+    HUD.drift(true, Math.abs(kart.speed) * 3.6, kart.drift.active ? kart.drift.stage : 0, kart.boost > 0, '');
+    HUD.data.style = kart.trickPoints; HUD.data.coins = kart.coins;
     updateMinimap(target);
     if (G.state === 'ride') HUD.timer(true, G.timer / G.timerMax, G.timer > 0 ? U.fmtTime(G.timer) : 'late… still tasty!');
     else HUD.timer(false);

@@ -112,108 +112,105 @@ FW.Models = (() => {
     return merged[0].geo;
   }
 
-  // ---------- the hero: a fat, chunky wombat ----------
-  // Low, wide and heavy, with stubby limbs, a broad nose and simple dot eyes.
-  // The body, head and belly hang off separate pivots so everything can jiggle.
+  // ---------- the hero: a heavy, chunky wombat ----------
+  // Cartoon-human proportions: a big barrel torso, short thick limbs, a broad
+  // low head, and a flat 2D face card carrying the eyes and mouth.
   function hero(opts = {}) {
     const g = new THREE.Group();
-    const F = P.fur, FD = P.furDark, FL = P.furLight, N = P.nose;
+    const F = P.fur, FD = P.furDark, FL = P.furLight;
     const sit = !!opts.sitting;
     const bodyG = new THREE.Group();
     const parts = [];
-    // barrel body — wider than it is tall
-    parts.push(p(sphere(0.34, 14, 10), F, 0, 0.36, 0, { sx: 1.22, sy: 0.98, sz: 1.14, mat: 'soft' }));
-    parts.push(p(sphere(0.28, 12, 9), FL, 0, 0.3, 0.16, { sx: 1.02, sy: 0.86, sz: 0.72, mat: 'soft' }));
-    parts.push(p(sphere(0.3, 12, 8), FD, 0, 0.42, -0.24, { sx: 1.05, sy: 0.84, sz: 0.6, mat: 'soft' }));
-    parts.push(p(sphere(0.07, 8, 6), FD, 0, 0.3, -0.42, { sz: 0.8, mat: 'soft' })); // stub tail
-    // apron
+    // torso: wide and heavy, tapering slightly to the shoulders
+    parts.push(p(sphere(0.4, 16, 12), F, 0, 0.44, 0, { sx: 1.16, sy: 1.02, sz: 1.0, mat: 'soft' }));
+    parts.push(p(sphere(0.33, 14, 10), F, 0, 0.72, -0.01, { sx: 1.0, sy: 0.78, sz: 0.94, mat: 'soft' }));
+    parts.push(p(sphere(0.3, 14, 10), FL, 0, 0.5, 0.22, { sx: 0.92, sy: 1.0, sz: 0.6, mat: 'soft' }));
+    parts.push(p(sphere(0.34, 12, 9), FD, 0, 0.56, -0.3, { sx: 1.02, sy: 0.9, sz: 0.55, mat: 'soft' }));
+    parts.push(p(sphere(0.08, 8, 6), FD, 0, 0.26, -0.4, { sz: 0.8, mat: 'soft' }));
     if (opts.apron !== false) {
-      parts.push(p(sphere(0.15, 14, 10), P.apron, 0, 0.44, 0.3, { sx: 1.2, sy: 1.28, sz: 0.42, mat: 'soft' }));
-      parts.push(p(cyl(0.42, 0.5, 0.24, 18, true), P.apron, 0, 0.16, 0.03, { sz: 0.9, mat: 'shell' }));
-      parts.push(p(torus(0.418, 0.026, 6, 22), P.apronTrim, 0, 0.05, 0.03, { rx: Math.PI / 2, sz: 0.9 }));
-      parts.push(p(capsule(0.026, 0.18), P.apron, -0.15, 0.58, 0.27, { rx: -0.2, rz: -0.42 }));
-      parts.push(p(capsule(0.026, 0.18), P.apron, 0.15, 0.58, 0.27, { rx: -0.2, rz: 0.42 }));
-      parts.push(p(torus(0.062, 0.022, 6, 12), P.apronTrim, 0, 0.4, -0.4, { rz: 0.5 }));
-      parts.push(p(torus(0.062, 0.022, 6, 12), P.apronTrim, 0, 0.4, -0.4, { rz: -0.5 }));
-      parts.push(p(cyl(0.055, 0.055, 0.02, 14), P.gold, 0, 0.46, 0.375, { rx: Math.PI / 2, mat: 'soft' }));
-      parts.push(p(torus(0.055, 0.013, 6, 16), '#d99a2e', 0, 0.46, 0.38));
-      parts.push(p(sphere(0.018, 8, 6), '#e8434d', 0, 0.46, 0.393));
+      parts.push(p(sphere(0.17, 14, 10), P.apron, 0, 0.6, 0.31, { sx: 1.12, sy: 1.3, sz: 0.4, mat: 'soft' }));
+      parts.push(p(cyl(0.47, 0.53, 0.3, 20, true), P.apron, 0, 0.22, 0.02, { sz: 0.92, mat: 'shell' }));
+      parts.push(p(torus(0.468, 0.026, 6, 24), P.apronTrim, 0, 0.07, 0.02, { rx: Math.PI / 2, sz: 0.92 }));
+      parts.push(p(capsule(0.028, 0.22), P.apron, -0.18, 0.75, 0.25, { rx: -0.18, rz: -0.4 }));
+      parts.push(p(capsule(0.028, 0.22), P.apron, 0.18, 0.75, 0.25, { rx: -0.18, rz: 0.4 }));
+      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: 0.5 }));
+      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: -0.5 }));
+      parts.push(p(cyl(0.06, 0.06, 0.02, 16), P.gold, 0, 0.62, 0.395, { rx: Math.PI / 2, mat: 'soft' }));
+      parts.push(p(torus(0.06, 0.014, 6, 18), '#c98f2b', 0, 0.62, 0.4));
     }
-    // stubby hind legs and big flat feet
-    const fz = sit ? 0.3 : 0.1;
+    // short, thick legs
+    const fz = sit ? 0.28 : 0.06;
     for (const sx of [-1, 1]) {
-      parts.push(p(capsule(0.085, sit ? 0.14 : 0.06), F, sx * 0.17, sit ? 0.2 : 0.14, fz, { rx: sit ? 1.1 : 0, mat: 'soft' }));
-      parts.push(p(sphere(0.115, 10, 7), FD, sx * 0.17, 0.055, fz + (sit ? 0.06 : 0.05), { sy: 0.6, sz: 1.25, mat: 'soft' }));
-      for (let i = -1; i <= 1; i++) parts.push(p(sphere(0.022, 6, 5), P.claw, sx * 0.17 + i * 0.042, 0.05, fz + (sit ? 0.16 : 0.15), { sz: 1.5 }));
+      parts.push(p(capsule(0.11, sit ? 0.16 : 0.1), F, sx * 0.19, sit ? 0.22 : 0.16, fz, { rx: sit ? 1.05 : 0, mat: 'soft' }));
+      parts.push(p(sphere(0.135, 12, 8), FD, sx * 0.19, 0.06, fz + (sit ? 0.08 : 0.06), { sy: 0.55, sz: 1.3, mat: 'soft' }));
+      for (let i = -1; i <= 1; i++) parts.push(p(sphere(0.024, 6, 5), P.claw, sx * 0.19 + i * 0.048, 0.05, fz + (sit ? 0.19 : 0.17), { sz: 1.5 }));
     }
     bodyG.add(build(parts));
     g.add(bodyG);
 
-    // head — broad, low-slung, with a wide nose
-    const head = new THREE.Group(); head.position.set(0, 0.66, 0.16);
+    // head: broad, sitting low on the shoulders
+    const head = new THREE.Group(); head.position.set(0, 0.92, 0.1);
+    const HR = 0.29;
     const hp = [];
-    hp.push(p(sphere(0.25, 14, 10), F, 0, 0, 0, { sx: 1.1, sy: 0.9, sz: 1.0, mat: 'soft' }));
-    hp.push(p(sphere(0.17, 12, 8), FL, 0, -0.05, 0.16, { sx: 1.0, sy: 0.78, sz: 0.7, mat: 'soft' }));
-    // muzzle + big flat nose
-    hp.push(p(sphere(0.13, 12, 8), FL, 0, -0.045, 0.2, { sx: 1.05, sy: 0.8, sz: 0.85, mat: 'soft' }));
-    hp.push(p(roundedBox(0.15, 0.085, 0.06, 0.032), N, 0, -0.025, 0.3, { mat: 'shiny' }));
-    hp.push(p(sphere(0.016, 6, 5), '#1a1412', -0.04, -0.03, 0.335));
-    hp.push(p(sphere(0.016, 6, 5), '#1a1412', 0.04, -0.03, 0.335));
-    hp.push(p(roundedBox(0.012, 0.05, 0.02, 0.005), '#3a2f2a', 0, -0.085, 0.29));
-    // simple dot eyes
+    hp.push(p(sphere(HR, 16, 12), F, 0, 0, 0, { sx: 1.12, sy: 0.94, sz: 0.98, mat: 'soft' }));
+    hp.push(p(sphere(0.2, 12, 9), FL, 0, -0.07, 0.17, { sx: 1.0, sy: 0.8, sz: 0.72, mat: 'soft' }));
+    hp.push(p(roundedBox(0.17, 0.1, 0.07, 0.035), P.nose, 0, -0.015, 0.3, { mat: 'shiny' }));
+    hp.push(p(sphere(0.018, 6, 5), '#141010', -0.046, -0.022, 0.335));
+    hp.push(p(sphere(0.018, 6, 5), '#141010', 0.046, -0.022, 0.335));
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.038, 10, 8), P.eye, sx * 0.115, 0.055, 0.2, { sz: 0.6, mat: 'matte' }));
-      hp.push(p(sphere(0.045, 8, 6), P.blush, sx * 0.19, -0.015, 0.14, { sz: 0.32, sy: 0.62 }));
-      // round wombat ears
-      hp.push(p(sphere(0.075, 10, 8), F, sx * 0.16, 0.17, -0.04, { sz: 0.45, mat: 'soft' }));
-      hp.push(p(sphere(0.048, 8, 6), P.blush, sx * 0.168, 0.17, -0.02, { sz: 0.3, mat: 'soft' }));
+      hp.push(p(sphere(0.085, 12, 9), F, sx * 0.2, 0.19, -0.04, { sz: 0.5, mat: 'soft' }));
+      hp.push(p(sphere(0.055, 8, 6), P.blush, sx * 0.208, 0.19, -0.015, { sz: 0.32, mat: 'soft' }));
     }
     head.add(build(hp));
-    // helicopter beanie
-    const hat = new THREE.Group(); hat.position.set(0, 0.145, -0.03);
+    // 2D face card: eyes and mouth, swapped for expressions
+    const faceMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.faceTexture('neutral'), transparent: true, alphaTest: 0.35, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 1.95, HR * 1.95), faceMat);
+    face.position.set(0, 0.03, HR * 0.96); face.renderOrder = 2;
+    head.add(face);
+    // beanie
+    const hat = new THREE.Group(); hat.position.set(0, 0.16, -0.03);
     const cols = [P.hatA, P.hatB, P.hatC, P.hatD];
     const hpr = [];
-    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.19, 8, 6, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, mat: 'soft' }));
-    hpr.push(p(torus(0.189, 0.024, 6, 20), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2 }));
-    hpr.push(p(cyl(0.018, 0.024, 0.08, 8), '#c8ccd8', 0, 0.17, 0, { mat: 'shiny' }));
+    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.215, 10, 7, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, sx: 1.06, sz: 1.02, mat: 'soft' }));
+    hpr.push(p(torus(0.222, 0.026, 6, 22), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2, sx: 1.04, sy: 1.0 }));
+    hpr.push(p(cyl(0.019, 0.025, 0.085, 8), '#b9bfc9', 0, 0.16, 0, { mat: 'metal' }));
     hat.add(build(hpr));
     head.add(hat);
     const prop = new THREE.Group(); prop.position.set(0, 0.345, -0.03);
-    const pp = [p(sphere(0.032, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
-    for (const sx of [-1, 1]) pp.push(p(roundedBox(0.19, 0.014, 0.05, 0.007), P.prop, sx * 0.112, 0.004, 0, { rz: sx * 0.2, ry: sx * 0.14, mat: 'shiny' }));
+    const pp = [p(sphere(0.034, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
+    for (const sx of [-1, 1]) pp.push(p(roundedBox(0.2, 0.015, 0.052, 0.007), P.prop, sx * 0.118, 0.004, 0, { rz: sx * 0.2, ry: sx * 0.14, mat: 'shiny' }));
     prop.add(build(pp));
     head.add(prop);
     g.add(head);
 
-    // short thick arms with claws — these do the steering
+    // short thick arms
     const arms = [];
     for (const sx of [-1, 1]) {
-      const a = new THREE.Group(); a.position.set(sx * 0.3, 0.44, 0.06);
+      const a = new THREE.Group(); a.position.set(sx * 0.36, 0.66, 0.04);
       a.add(build([
-        p(capsule(0.095, 0.16), F, sx * 0.09, -0.02, 0, { rz: sx * 1.15, mat: 'soft' }),
-        p(sphere(0.105, 10, 8), FD, sx * 0.21, -0.05, 0.02, { mat: 'soft' }),
-        ...[-1, 0, 1].map((i) => p(sphere(0.024, 6, 5), P.claw, sx * 0.27, -0.05 + i * 0.045, 0.07, { sz: 1.4 })),
+        p(capsule(0.105, 0.19), F, sx * 0.1, -0.03, 0, { rz: sx * 1.2, mat: 'soft' }),
+        p(sphere(0.115, 12, 9), FD, sx * 0.24, -0.07, 0.02, { mat: 'soft' }),
+        ...[-1, 0, 1].map((i) => p(sphere(0.025, 6, 5), P.claw, sx * 0.31, -0.07 + i * 0.048, 0.07, { sz: 1.4 })),
       ]));
       g.add(a); arms.push(a);
     }
-    // lollipop, held in the mouth
-    let lolli = null;
-    if (opts.lollipop !== false) {
-      lolli = new THREE.Group();
-      lolli.add(build([p(capsule(0.012, 0.2), P.stick, 0, 0.1, 0, { mat: 'soft' })]));
-      const candyMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.spiralTexture(), roughness: 0.22, metalness: 0.0, envMapIntensity: 1.3 });
-      const candy = new THREE.Mesh(cyl(0.085, 0.085, 0.03, 20), candyMat);
-      candy.rotation.x = Math.PI / 2; candy.position.y = 0.235; candy.castShadow = true;
-      const rim = new THREE.Mesh(torus(0.085, 0.016, 6, 20), FW.Pixel.mat(P.candy, { roughness: 0.22 }));
-      rim.position.y = 0.235;
-      lolli.add(candy, rim);
-      lolli.position.set(0.115, -0.1, 0.25); lolli.rotation.set(-0.5, 0, -0.95);
-      head.add(lolli);
-    }
-    g.userData = { head, arms, wings: arms, prop, lolli, body: bodyG, hat };
+    let expr = 'neutral', blinkT = 2 + Math.random() * 3;
+    g.userData = {
+      head, arms, wings: arms, prop, body: bodyG, hat, face,
+      setExpr(e) { if (e === expr) return; expr = e; faceMat.map = FW.Pixel.faceTexture(e); faceMat.needsUpdate = true; },
+      get expr() { return expr; },
+      // idle blinking, driven from whatever updates the character
+      tickFace(dt) {
+        blinkT -= dt;
+        if (blinkT <= 0) {
+          if (expr !== 'blink' && !g.userData.busy) { g.userData.prev = expr; g.userData.setExpr('blink'); blinkT = 0.12; }
+          else { g.userData.setExpr(g.userData.prev || 'neutral'); blinkT = 2.5 + Math.random() * 3.5; }
+        }
+      },
+    };
     return g;
   }
-  const duck = hero;   // the old name, kept so nothing downstream breaks
+  const duck = hero;
 
   // ---------- scooter ----------
   function scooter() {

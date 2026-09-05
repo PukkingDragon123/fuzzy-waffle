@@ -1,15 +1,14 @@
-# Flippin' Waffles 🧇🦆
+# Flippin' Waffles 🧇
 
 A cozy, cute **3D browser game**: you are a fat, chunky **wombat** in an apron and a
-helicopter beanie (with a lollipop) who runs a waffle delivery business in
-**Yosemite Valley**.
+helicopter beanie who runs a waffle delivery business in **Yosemite Valley**.
 
 The valley is laid out to follow the real place — a long east-west trough with the
 Merced meandering down the middle, Northside and Southside Drive along the floor,
 granite walls north and south, and El Capitan, Half Dome, Sentinel Rock, Yosemite
 Falls, Bridalveil, Mirror Lake, Camp 4, Curry Village and Glacier Point roughly where
-a map puts them. Traffic drives the loop, steel guardrails line the drops, and the HUD
-navigates you there like a maps app, route line and all.
+a map puts them. Traffic drives the loop, steel guardrails line the drops, and the
+phone clipped to your handlebars navigates you there like a maps app, route line and all.
 
 Cook each order by hand, all by tapping: open the fridge, tap ingredients into the bowl,
 tap to stir until the lumps are gone, tap the iron to pour, and lift the waffle out when
@@ -22,9 +21,11 @@ hopping fences, grinding guardrails, launching off bouncy mushrooms, riding a ba
 timber flume, cutting through a hollow sequoia, dodging traffic, and honking at the bears
 who want your waffles. On a phone or tablet you get a **steering wheel and pedals**.
 
-Everything is modelled and lit smoothly and roundly; the **pixel look is a filter** —
-the scene renders to a low-resolution buffer that gets bloomed, colour-quantised and
-scaled back up with nearest-neighbour sampling.
+The look is **realistic**, not pixel art: full-resolution rendering with filmic tone
+mapping, image-based lighting, soft shadows, bloom, a warm grade and a touch of film
+grain. Asphalt, concrete, timber and stone are all real textures. **There is almost no
+floating UI** — the order ticket lives on a tablet propped on the kitchen counter and
+the nav lives on the phone on your scooter, so you read the game inside the world.
 
 No build step and nothing to install: open `index.html`, or serve the folder
 (`npm start`). Three.js ships in the repo.
@@ -52,7 +53,7 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
 | Clean up | **tap the sponge** by the sink, then **tap any mess**. Tap anything else to put it down |
 
 ### Scooter
-On touch devices an on-screen **steering wheel**, **GO/BRAKE pedals** and hop/trick/quack
+On touch devices an on-screen **steering wheel**, **GO/BRAKE pedals** and hop/trick/honk
 buttons appear automatically.
 
 | Action | Keys |
@@ -63,7 +64,7 @@ buttons appear automatically.
 | Drift | hold Space while steering as you land, release for a mini / super / **ULTRA** turbo |
 | Trick in the air | Shift (or E) — lean for spins and flips; land it for a boost |
 | Grind a rail | hop onto a rail, a bridge railing or a fallen log; Space to hop off |
-| Quack (scares bears) | H |
+| Honk (scares bears) | H |
 | Rescue when stuck | R |
 | Pause / mute | Esc / M |
 
@@ -83,25 +84,37 @@ buttons appear automatically.
   become tips at the end of a run.
 - **Bears** roam the meadows with their cubs and will chase you when you carry waffles.
   Honk to scare them off, or they take one.
-- A **map card** in the corner: landcover, cased roads, the Merced, place labels, a
-  routed blue line along the roads to your drop-off, and a heading cone for you.
+- **Your phone** is the map: clipped to the handlebars, it shows the turn arrow,
+  distance and ETA over landcover, cased roads, the Merced, place labels, a routed blue
+  line along the roads to your drop-off and a heading pip for you. In the kitchen the
+  same interface is a tablet on the counter showing the order ticket.
 
 ## Tech
 - Vanilla JavaScript + [Three.js](https://threejs.org) r158 (vendored in `vendor/`).
-- **Round models, light pixel filter.** Characters and props are built from spheres,
-  capsules, tori and rounded boxes, merged per material family so a whole character is
-  1–3 draw calls. The scene is lit with a sun, a sky/ground hemisphere, a fill light and
-  a procedurally generated IBL probe, tone-mapped with ACES, then pushed through a
-  bright-pass bloom and a gentle quantise + vignette pass at roughly half resolution.
+- **Realistic rendering.** Characters and props are built from spheres, capsules, tori
+  and rounded boxes, merged per material family so a whole character is 1–3 draw calls.
+  The scene is lit with a sun, a sky/ground hemisphere, a fill light and a procedurally
+  generated IBL probe, rendered at full resolution with soft shadow maps, tone-mapped
+  with ACES, then pushed through a bright-pass bloom and a composite that adds a warm
+  grade, saturation, fine film grain and a vignette. No quantisation, no pixel filter.
 - **Cut-out foliage.** Every tree is a trunk plus a handful of textured cards drawn from
   one procedurally generated greyscale atlas (needle spray, broadleaf cluster, grass
   tuft, plus a solid cell for trunks), so trunks and leaves share a single material and a
   forest chunk is one draw call. Ground cover, ferns and meadow flowers use the same
   atlas. Around 500k triangles and ~600 draw calls in a typical frame.
-- **Textures.** Floorboards, wallpaper, backsplash tiles, the rug, concrete and every
-  road sign are drawn to canvas at load time — no image files ship with the game.
+- **Textures.** Asphalt with baked lane markings and tyre polish, ground grain,
+  floorboards, wallpaper, backsplash tiles, the rug, concrete and every road sign are
+  drawn to canvas at load time — no image files ship with the game. Roads are textured
+  ribbons laid over the terrain rather than flat vertex colours.
 - **Springy animation.** A small spring solver drives squash-and-stretch, suspension
   travel, lean and every UI pop, so nothing moves on a plain linear lerp.
+- **A face, not a rig.** The wombat's eyes and mouth are one alpha-cut card in front of
+  the head, redrawn from a canvas per expression — neutral, happy, joy, focus, worry,
+  surprise, blink and sad — driven by what is happening (drifting, boosting, airborne,
+  stunned, spilling batter).
+- **Tap-to-move camera.** The kitchen has framed camera stations (wide, prep, cook,
+  plate); tapping an object glides the camera to its station with pointer parallax, so
+  you move around the room by looking at what you want to use.
 - **Procedural world.** A heightfield valley with the Merced meandering through it,
   granite walls, Half Dome, El Capitan, Cathedral Rocks, Sentinel Rock, three waterfalls,
   roads rasterised into the terrain, stone-parapet bridges, a banked chute, ramps, rails,
@@ -111,20 +124,21 @@ buttons appear automatically.
   (about 390k triangles and 67 draw calls in a typical frame).
 - **Routing.** The roads form a weighted graph; Dijkstra over it draws the blue route
   line on the map card, re-snapping as you drive.
-- **Procedural audio** (WebAudio): engine, quacks, sizzle, drift sparks, two chiptune loops.
+- **Procedural audio** (WebAudio): engine, honks, sizzle, drift sparks, two chiptune loops.
 
 ```
-index.html        page + HUD markup
-src/style.css     HUD styling
+index.html        page + touch-control markup
+src/style.css     touch controls & the few remaining overlays
 src/util.js       math, RNG, noise, input
-src/pixel.js      renderer, lighting rig, the pixel post-process filter, particles
-src/models.js     rounded model library (duck, scooter, bears, trees, buildings, waffles…)
+src/pixel.js      renderer, lighting rig, post-process, procedural textures, particles
+src/models.js     model library (wombat, scooter, bears, trees, buildings, waffles…)
 src/world.js      terrain / roads / props / colliders / traversal features
 src/kart.js       scooter physics, springs, drift, tricks, rails, camera
 src/bears.js      bear AI
-src/kitchen.js    drag-and-drop cooking
+src/kitchen.js    tap-driven cooking, camera stations, mess & cleaning
 src/orders.js     recipes, customers, scoring
-src/hud.js        DOM overlay + minimap
+src/hud.js        HUD data store, tooltips, minimap source
+src/phone.js      the in-world phone / tablet screen (order + nav)
 src/audio.js      procedural sound & music
 src/main.js       game states & loop
 tools/build.js    bundles everything into dist/flippin-waffles.html (single file)

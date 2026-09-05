@@ -10,9 +10,20 @@ FW.Kitchen = class {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#d8b98d');
     this.scene.environment = FW.Pixel.envIndoor;
-    this.camera = new THREE.PerspectiveCamera(54, FW.Pixel.size.aspect, 0.1, 60);
-    this.camera.position.set(0.4, 3.2, 3.6);
-    this.camera.lookAt(0.4, 1.05, -0.6);
+    this.camera = new THREE.PerspectiveCamera(46, FW.Pixel.size.aspect, 0.1, 60);
+    // tap a station and the camera slides over to it
+    this.stations = {
+      wide:  { pos: new THREE.Vector3(0.4, 3.25, 3.75), look: new THREE.Vector3(0.4, 1.05, -0.55), fov: 52 },
+      prep:  { pos: new THREE.Vector3(-1.0, 2.35, 1.95), look: new THREE.Vector3(-1.15, 1.05, -0.15), fov: 44 },
+      cook:  { pos: new THREE.Vector3(0.35, 2.4, 1.85), look: new THREE.Vector3(0.2, 1.06, -0.25), fov: 42 },
+      plate: { pos: new THREE.Vector3(2.1, 2.4, 2.0), look: new THREE.Vector3(2.15, 1.04, -0.2), fov: 44 },
+    };
+    this.station = 'wide';
+    this.camPos = this.stations.wide.pos.clone();
+    this.camLook = this.stations.wide.look.clone();
+    this.camFov = this.stations.wide.fov;
+    this.camera.position.copy(this.camPos);
+    this.camera.lookAt(this.camLook);
     this.fx = new FW.Particles(this.scene, 460);
     this.ray = new THREE.Raycaster();
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -62,12 +73,12 @@ FW.Kitchen = class {
   build() {
     const V = FW.Models, P = FW.PAL, M = FW.Pixel.mat, S = this.scene, TOP = this.TOP;
     // --- light: window key, warm bounce, a lamp over the counter ---
-    const key = new THREE.DirectionalLight('#fff0d2', 2.3); key.position.set(-3.4, 4.6, 2.8); key.castShadow = true;
+    const key = new THREE.DirectionalLight('#ffeccb', 2.7); key.position.set(-3.4, 4.6, 2.8); key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     const sc = key.shadow.camera; sc.left = -4.2; sc.right = 4.2; sc.top = 3.2; sc.bottom = -2.6; sc.near = 1; sc.far = 15;
     key.shadow.bias = -0.0007; key.shadow.normalBias = 0.02; key.shadow.radius = 3;
     S.add(key, key.target);
-    S.add(new THREE.HemisphereLight('#ffeacc', '#9c7a54', 0.55));
+    S.add(new THREE.HemisphereLight('#dce8f5', '#8a7050', 0.42));
     const rim = new THREE.DirectionalLight('#bcd8ff', 0.45); rim.position.set(2.8, 2.4, -3); S.add(rim);
     this.lampLight = new THREE.PointLight('#ffb060', 2.4, 5.4, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
 
@@ -146,6 +157,7 @@ FW.Kitchen = class {
       obj.userData = Object.assign(obj.userData, data);
       S.add(obj); this.taps.push(obj); return obj;
     };
+    const stationOf = (x) => (x < -0.4 ? 'prep' : x < 1.0 ? 'cook' : 'plate');
 
     // --- the fridge ---
     const fridge = new THREE.Group(); fridge.position.set(3.5, 0, -1.5); fridge.rotation.y = -0.34;
@@ -192,11 +204,11 @@ FW.Kitchen = class {
       // sit them on the fridge shelves, in the fridge's own frame
       g.position.set(3.5 + Math.cos(-0.34) * x - Math.sin(-0.34) * 0.12, y, -1.5 + Math.sin(-0.34) * x + Math.cos(-0.34) * 0.12);
       g.rotation.y = -0.34;
-      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true }, 0.19, 0.14);
+      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true, station: 'plate' }, 0.19, 0.14);
       this.fridgeItems.push(g);
     }
     // toppings live in the fridge door racks + a counter tray
-    reg(fridge, { kind: 'fridge', label: 'Fridge' }, 0.9, 1.3);
+    reg(fridge, { kind: 'fridge', label: 'Fridge', station: 'plate' }, 0.9, 1.3);
     this.fridge = fridge;
 
     // --- bowl ---
@@ -210,7 +222,7 @@ FW.Kitchen = class {
     this.batter.position.y = 0.09; this.batter.visible = false; bowl.add(this.batter);
     this.lumpG = new THREE.Group(); bowl.add(this.lumpG);
     bowl.position.set(-1.25, TOP, 0.3);
-    reg(bowl, { kind: 'bowl', label: 'Mixing bowl' }, 0.32, 0.18);
+    reg(bowl, { kind: 'bowl', label: 'Mixing bowl', station: 'prep' }, 0.32, 0.18);
     this.bowl = bowl;
     // whisk resting in the bowl
     this.whisk = V.build([
@@ -251,7 +263,7 @@ FW.Kitchen = class {
     this.ironBatter = new THREE.Mesh(V.cyl(0.28, 0.26, 0.05, 18), M('#f7e6b8', { roughness: 0.45 }));
     this.ironBatter.position.y = 0.11; this.ironBatter.visible = false; this.ironPivot.add(this.ironBatter);
     this.ironWaffle = V.waffle(0.46); this.ironWaffle.position.y = 0.1; this.ironWaffle.visible = false; this.ironPivot.add(this.ironWaffle);
-    reg(ironG, { kind: 'iron', label: 'Waffle iron' }, 0.44, 0.2);
+    reg(ironG, { kind: 'iron', label: 'Waffle iron', station: 'cook' }, 0.44, 0.2);
     this.ironG = ironG;
 
     // --- plate + waffle ---
@@ -263,7 +275,7 @@ FW.Kitchen = class {
     this.plateWaffle = V.waffle(0.48);
     this.plateWaffle.position.set(1.15, TOP + 0.055, 0.3);
     this.plateWaffle.visible = false; S.add(this.plateWaffle);
-    reg(this.plateWaffle, { kind: 'waffle', label: 'Your waffle' }, 0.34, 0.06);
+    reg(this.plateWaffle, { kind: 'waffle', label: 'Your waffle', station: 'plate' }, 0.34, 0.06);
     this.toppingMeshes = {};
 
     // --- toppings tray ---
@@ -277,7 +289,7 @@ FW.Kitchen = class {
         V.p(V.sphere(0.125, 12, 8), t.color, 0, 0.11, 0, { sy: 0.52, mat: k === 'syrup' || k === 'honey' ? 'shiny' : 'soft' }),
       ]));
       g.position.set(1.5 + col * 0.3, TOP, -0.5 + row * 0.34);
-      reg(g, { kind: 'topping', id: k, label: t.name }, 0.16, 0.12);
+      reg(g, { kind: 'topping', id: k, label: t.name, station: 'plate' }, 0.16, 0.12);
       this.tray.push(g);
     });
 
@@ -300,7 +312,7 @@ FW.Kitchen = class {
     ]));
     this.boxLid.rotation.x = -2.2; bx.add(this.boxLid);
     bx.position.set(2.95, TOP, 0.42);
-    reg(bx, { kind: 'box', label: 'Delivery box' }, 0.28, 0.18);
+    reg(bx, { kind: 'box', label: 'Delivery box', station: 'plate' }, 0.28, 0.18);
     this.box = bx;
     this.boxCount = new THREE.Group(); this.boxCount.position.set(2.95, TOP + 0.06, 0.42); S.add(this.boxCount);
 
@@ -310,7 +322,7 @@ FW.Kitchen = class {
       V.p(V.roundedBox(0.26, 0.05, 0.18, 0.03), '#3aa6a6', 0, 0.12, 0, { mat: 'soft' }),
     ]);
     sponge.position.set(-2.15, TOP + 0.08, 0.42);
-    reg(sponge, { kind: 'sponge', label: 'Sponge — tap it, then tap a mess' }, 0.2, 0.08);
+    reg(sponge, { kind: 'sponge', label: 'Sponge — tap it, then tap a mess', station: 'prep' }, 0.2, 0.08);
     this.sponge = sponge;
     this.spongeHome = sponge.position.clone();
 
@@ -322,10 +334,22 @@ FW.Kitchen = class {
       V.p(V.roundedBox(1.0, 0.06, 0.6, 0.02), '#96663a', 0, 0.06, 0),
     ]);
     step.position.set(0.9, 0, -1.12); S.add(step);
-    this.chef = V.hero({ lollipop: 'wing' });
+    this.chef = V.hero({});
     this.chef.position.set(0.9, 0.48, -1.12); this.chef.scale.setScalar(1.5); S.add(this.chef);
     this.chefSq = new FW.Kart.Spring(1, 200, 12);
     const chefKey = new THREE.PointLight('#fff2dc', 1.2, 2.8, 2); chefKey.position.set(0.9, 2.45, -0.55); S.add(chefKey);
+
+    // the order tablet: this is where the ticket lives now
+    const stand = V.build([
+      V.p(V.roundedBox(0.34, 0.03, 0.2, 0.012), '#3a3d44', 0, 0.015, 0, { mat: 'shiny' }),
+      V.p(V.roundedBox(0.3, 0.16, 0.03, 0.012), '#3a3d44', 0, 0.09, -0.07, { rx: -0.5, mat: 'shiny' }),
+    ]);
+    stand.position.set(-2.3, TOP, -0.3); stand.rotation.y = 0.42; S.add(stand);
+    this.phone = new FW.Phone({ scale: 3.0, glow: 0.35 });
+    this.phone.mode = 'order';
+    this.phone.object.position.set(-2.3, TOP + 0.28, -0.29);
+    this.phone.object.rotation.set(-0.52, 0.42, 0);
+    S.add(this.phone.object);
 
     // halo under whatever you should tap next
     this.halo = new THREE.Mesh(V.torus(0.42, 0.035, 6, 26), FW.Pixel.flat('#f7c544'));
@@ -652,9 +676,16 @@ FW.Kitchen = class {
     this.ray.setFromCamera({ x: m.nx, y: m.ny }, this.camera);
     return this.ray.ray.intersectPlane(this.plane, this.hit) ? this.hit.clone() : null;
   }
+  goTo(station) {
+    if (!this.stations[station] || this.station === station) return;
+    this.station = station;
+    FW.Audio.sfx.pick();
+  }
   tap(hitObj, point, m) {
     const d = hitObj ? hitObj.userData : null;
     const kind = d ? d.kind : null;
+    if (d && d.station) this.goTo(d.station);
+    else if (!kind) this.goTo('wide');
     // holding the sponge: taps wipe
     if (this.held === 'sponge') {
       if (kind === 'mess') { this.wipe(d.mess); return; }
@@ -729,6 +760,19 @@ FW.Kitchen = class {
     if (tapNow) this.tap(hov, cur && cur.point, m);
     if (inp.pressed('flip')) { if (this.state === 'cooking') this.lift(); else if (this.state === 'mixing') this.tap(this.bowl, null, m); }
 
+    // slide toward the tapped station, with a little pointer parallax
+    {
+      const st = this.stations[this.station];
+      const k = 1 - Math.exp(-3.4 * dt);
+      this.camPos.lerp(st.pos, k);
+      this.camLook.lerp(st.look, k);
+      this.camFov = U.damp(this.camFov, st.fov, 3.4, dt);
+      const px = U.clamp(m.nx, -1, 1) * 0.16, py = U.clamp(m.ny, -1, 1) * 0.09;
+      this.camera.position.set(this.camPos.x + px, this.camPos.y + py, this.camPos.z);
+      this.camera.lookAt(this.camLook);
+      if (Math.abs(this.camera.fov - this.camFov) > 0.02) { this.camera.fov = this.camFov; this.camera.updateProjectionMatrix(); }
+    }
+    if (this.phone) { this.phone.update(dt); }
     // the sponge follows the cursor while held
     if (this.held === 'sponge') {
       const p = this.planePoint(m, this.TOP + 0.22);
@@ -825,6 +869,17 @@ FW.Kitchen = class {
     if (this.state === 'cooking') { arms[0].rotation.z = -(0.5 + Math.sin(this.t * 3.4) * 0.16); arms[1].rotation.z = -arms[0].rotation.z; }
     else { const w = 0.2 + Math.sin(this.t * 1.8) * 0.12 + this.stirSpin * 0.05; arms[0].rotation.z = U.damp(arms[0].rotation.z, -w, 6, dt); arms[1].rotation.z = -arms[0].rotation.z; }
     c.userData.prop.rotation.y += dt * (2.2 + this.stirSpin * 0.6);
+    if (c.userData.setExpr) {
+      const f = c.userData;
+      f.busy = true;
+      if (this.state === 'cooking') f.setExpr(Math.abs(this.cook / 100 - 0.58) < 0.13 ? 'joy' : 'focus');
+      else if (this.state === 'packing' || this.state === 'wait') f.setExpr('joy');
+      else if (this.messes.length > 4) f.setExpr('worry');
+      else if (this.stirSpin > 1) f.setExpr('focus');
+      else if (this.held) f.setExpr('happy');
+      else { f.busy = false; f.setExpr(f.expr === 'blink' ? 'blink' : 'neutral'); }
+      f.tickFace(dt);
+    }
     if (c.userData.body) { const j = sq - 1; c.userData.body.scale.set(1 - j * 0.5, 1 + j * 0.8, 1 - j * 0.5); }
     this.lights.forEach((l, i) => l.scale.setScalar(0.85 + 0.18 * Math.sin(this.t * 2.6 + i)));
     this.lampLight.intensity = 2.4 + Math.sin(this.t * 3) * 0.22;

@@ -37,6 +37,12 @@ FW.Kart = (() => {
       this.duck.position.set(0, 0.44, -0.34);
       this.susp.add(this.scooter, this.duck);
       this.trickG.add(this.susp); this.tilt.add(this.trickG); this.visual.add(this.tilt); scene.add(this.visual);
+      // the phone lives on the handlebars — that is the whole HUD
+      this.phone = new FW.Phone({ scale: 2.4, glow: 0.3 });
+      this.phone.mode = 'nav';
+      this.phone.object.position.set(0, 1.06, 0.4);
+      this.phone.object.rotation.set(-0.72, 0, 0);
+      this.scooter.add(this.phone.object);
       // springs give everything a little overshoot instead of a linear lerp
       this.sq = new Spring(1, 210, 13);      // squash & stretch
       this.sus = new Spring(0, 150, 12);     // suspension travel
@@ -345,6 +351,7 @@ FW.Kart = (() => {
       if (hop) FW.Audio.sfx.hop();
     }
     updateVisual(dt, steer, W) {
+      if (this.phone) this.phone.update(dt);
       const spd = U.clamp(Math.abs(this.speed) / MAX, 0, 1.3);
       this.sq.update(dt); this.sus.update(dt); this.leanZ.update(dt); this.leanX.update(dt);
       this.visualYawOffset = U.damp(this.visualYawOffset, this.drift.active ? -this.drift.dir * 0.5 : 0, 8, dt);
@@ -411,7 +418,18 @@ FW.Kart = (() => {
       this.propSpeed = U.damp(this.propSpeed, propTarget, 5, dt);
       this.duck.userData.prop.rotation.y += this.propSpeed * dt;
       this.duck.userData.prop.position.y = 0.345 + Math.sin(this.t * 14) * 0.006 * spd;
-      if (this.duck.userData.lolli) { this.duck.userData.lolli.rotation.z = -0.42 + Math.sin(this.t * 5) * 0.1; this.duck.userData.lolli.rotation.x = -0.34 - spd * 0.12 + Math.sin(this.t * 3.5) * 0.06; }
+      // the wombat's face reacts to what is happening
+      const f = this.duck.userData;
+      if (f.setExpr) {
+        f.busy = true;
+        if (this.stun > 0 || this.spinOut > 0) f.setExpr('sad');
+        else if (!this.onGround && this.air > 0.25) f.setExpr('surprise');
+        else if (this.boost > 0) f.setExpr('joy');
+        else if (this.drift.active) f.setExpr('focus');
+        else if (spd > 0.55) f.setExpr('happy');
+        else { f.busy = false; f.setExpr(f.expr === 'blink' ? 'blink' : 'neutral'); }
+        f.tickFace(dt);
+      }
       this.wheelSpin += this.speed * dt / 0.3;
       const wh = this.scooter.userData.wheels;
       wh[0].rotation.x = this.wheelSpin; wh[1].rotation.x = this.wheelSpin; wh[1].rotation.y = -steer * 0.4;
