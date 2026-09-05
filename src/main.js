@@ -4,14 +4,20 @@
   const canvas = document.getElementById('game');
   const renderer = FW.Pixel.init(canvas);
   const worldScene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(62, FW.Pixel.size.aspect, 0.1, 1500);
+  const camera = new THREE.PerspectiveCamera(FW.Pixel.fitFov(62), FW.Pixel.size.aspect, 0.1, 1500);
   const { fx } = W.build(worldScene);
   const kart = new FW.Kart(worldScene);
   const bears = new FW.Bears(worldScene, W, fx);
   const kitchen = new FW.Kitchen();
   HUD.minimapInit(W.minimap);
   const TOUCH = HUD.isTouch();
-  FW.events.on('resize', (s) => { camera.aspect = s.aspect; camera.updateProjectionMatrix(); kitchen.camera.aspect = s.aspect; kitchen.camera.updateProjectionMatrix(); });
+  FW.events.on('resize', (s) => {
+    camera.aspect = s.aspect; camera.updateProjectionMatrix();
+    kitchen.camera.aspect = s.aspect; kitchen.camera.updateProjectionMatrix();
+    // re-fit the vertical fov for the new shape (portrait phones especially)
+    FW.Pixel.setFov(camera, kart && kart.cam ? kart.cam.fov : 62);
+    FW.Pixel.setFov(kitchen.camera, kitchen.camFov);
+  });
 
   const SAVE_KEY = 'flippinWaffles.save.v1';
   const defaultSave = () => ({ day: 1, coins: 0, rep: 3, delivered: 0, orderIndex: 0, bestTip: 0, tricks: 0, bearsHonked: 0 });
@@ -204,7 +210,11 @@
     if (e.code === 'KeyM') { A.init(); A.setMuted(!A.muted); HUD.popup(A.muted ? 'Muted' : 'Sound on', 'small'); }
     if (e.code === 'Enter' && G.state === 'title') startGame();
   });
-  window.addEventListener('mousedown', () => { if (G.state === 'title') return; A.init(); A.resume(); }, { once: false });
+  // On touch the canvas swallows synthetic mouse events, so wake the audio
+  // context from a real touch too — otherwise a phone plays the game silently.
+  const wakeAudio = () => { if (G.state === 'title') return; A.init(); A.resume(); };
+  window.addEventListener('mousedown', wakeAudio);
+  window.addEventListener('touchstart', wakeAudio, { passive: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !G.paused && G.state !== 'title') togglePause(); });
 
   // ---------- loop ----------
@@ -223,7 +233,7 @@
         G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
         const a = G.titleT * 0.14, hy = W.groundY(0, 66);
         camera.position.set(Math.sin(a) * 36, hy + 23 + Math.sin(G.titleT * 0.5) * 1.6, 66 + Math.cos(a) * 36);
-        camera.lookAt(13, hy + 5, 66); if (camera.fov !== 52) { camera.fov = 52; camera.updateProjectionMatrix(); }
+        camera.lookAt(13, hy + 5, 66); FW.Pixel.setFov(camera, 52);
         break; }
       case 'kitchen': {
         kitchen.update(dt, Inp);

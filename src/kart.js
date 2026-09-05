@@ -443,7 +443,13 @@ FW.Kart = (() => {
     }
     updateCamera(dt, camera, W) {
       const spF = U.clamp(Math.abs(this.speed) / MAX, 0, 1.3);
-      const back = 6.4 + spF * 1.7, up = 2.8 + spF * 0.45;
+      // Portrait phones: the fov fit opens the frame vertically, which drops the
+      // scooter to the very bottom of the screen behind the wheel and pedals.
+      // Pull back a little and aim further ahead so it sits around two thirds
+      // down, clear of the controls.
+      const asp = FW.Pixel.size.aspect || 1.78;
+      const tall = U.clamp((1.5 - asp) / 0.9, 0, 1);
+      const back = 6.4 + spF * 1.7 + tall * 0.6, up = 2.8 + spF * 0.45 + tall * 1.5;
       if (!this.cam.init) this.cam.yaw = this.yaw;
       this.cam.yaw = U.angleLerp(this.cam.yaw, this.yaw, this.cam.init ? 1 - Math.exp(-4.5 * dt) : 1);
       const cfx = Math.sin(this.cam.yaw), cfz = Math.cos(this.cam.yaw);
@@ -462,7 +468,7 @@ FW.Kart = (() => {
       camera.lookAt(this.cam.look);
       const fovT = 62 + spF * 9 + (this.boost > 0 ? 9 : 0);
       this.cam.fov = U.damp(this.cam.fov, fovT, 4.5, dt);
-      if (Math.abs(camera.fov - this.cam.fov) > 0.05) { camera.fov = this.cam.fov; camera.updateProjectionMatrix(); }
+      FW.Pixel.setFov(camera, this.cam.fov);
     }
   }
   Kart.MAX = MAX;

@@ -76,9 +76,37 @@ FW.Input = (() => {
   window.addEventListener('mousemove', updMouse);
   window.addEventListener('mousedown', (e) => { if (e.button !== 0) return; updMouse(e); mouse.down = true; mouse.clicked = true; });
   window.addEventListener('mouseup', () => (mouse.down = false));
-  window.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { updMouse(t); mouse.down = true; mouse.clicked = true; } }, { passive: true });
-  window.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) updMouse(t); }, { passive: true });
-  window.addEventListener('touchend', () => (mouse.down = false));
+  // Touch. These are deliberately NOT passive: the game is played by tapping,
+  // and a passive listener cannot stop the browser turning two quick taps into
+  // a zoom, or two fingers into a pinch. Anything that starts on a control we
+  // painted ourselves (the wheel, the pedals, a button, the title screen) is
+  // left alone so those keep working normally.
+  const ownControl = (t) => !!(t && t.closest && t.closest('#touch, #title, #panel, button, a'));
+  window.addEventListener('touchstart', (e) => {
+    if (ownControl(e.target)) return;
+    if (e.cancelable) e.preventDefault();
+    if (e.touches.length > 1) return;                // ignore extra fingers
+    const t = e.touches[0]; if (t) { updMouse(t); mouse.down = true; mouse.clicked = true; }
+  }, { passive: false });
+  window.addEventListener('touchmove', (e) => {
+    if (ownControl(e.target)) return;
+    if (e.cancelable) e.preventDefault();
+    if (e.touches.length > 1) return;
+    const t = e.touches[0]; if (t) updMouse(t);
+  }, { passive: false });
+  window.addEventListener('touchend', (e) => {
+    mouse.down = false;
+    if (!ownControl(e.target) && e.cancelable) e.preventDefault();   // no double-tap zoom
+  }, { passive: false });
+  window.addEventListener('touchcancel', () => (mouse.down = false));
+  // Safari on iOS ignores user-scalable=no, so pinch has to be refused here
+  for (const g of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(g, (e) => e.preventDefault(), { passive: false });
+  }
+  // and a stray double-click still zooms some Android browsers
+  window.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+  // ctrl+wheel is the desktop pinch gesture on trackpads
+  window.addEventListener('wheel', (e) => { if (e.ctrlKey && e.cancelable) e.preventDefault(); }, { passive: false });
   const anyDown = (codes) => codes.some((c) => down.has(c));
   const anyPressed = (codes) => codes.some((c) => pressed.has(c));
   // on-screen controls feed the same actions as the keyboard

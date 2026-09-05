@@ -54,6 +54,8 @@ FW.HUD = (() => {
   let touchReady = false;
   function touchControls(v) {
     show('touch', v);
+    // the hint bar and the mess counter need to move clear of the wheel/pedals
+    document.body.classList.toggle('touch-ui', !!v);
     if (touchReady || !v) return;
     touchReady = true;
     const I = FW.Input, wheel = document.getElementById('wheel'), rim = wheel.querySelector('.rim');

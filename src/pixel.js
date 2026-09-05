@@ -110,6 +110,26 @@ FW.Pixel = (() => {
     return t;
   }
 
+  // Three's fov is the VERTICAL angle, so on a tall phone the horizontal view
+  // collapses and the game looks zoomed hard in. Every camera goes through
+  // this: at 16:9 or wider you get the fov you asked for, and narrower than
+  // that the vertical angle opens up to hold the horizontal view steady.
+  const BASE_ASPECT = 16 / 9;
+  function fitFov(fov, aspect) {
+    const a = aspect || size.aspect || BASE_ASPECT;
+    if (a >= BASE_ASPECT) return fov;
+    const h = 2 * Math.atan(Math.tan((fov * Math.PI / 180) / 2) * BASE_ASPECT);   // the horizontal angle we want to keep
+    // Capped only to stop the projection degenerating on absurd aspect ratios;
+    // a phone genuinely needs most of this compensation, and anything tighter
+    // puts you back to staring at a wall.
+    return Math.min(100, 2 * Math.atan(Math.tan(h / 2) / a) * 180 / Math.PI);
+  }
+  // set a camera's fov in design terms; the fit is applied for you
+  function setFov(cam, fov) {
+    const f = fitFov(fov);
+    if (Math.abs(cam.fov - f) > 0.01) { cam.fov = f; cam.updateProjectionMatrix(); }
+  }
+
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     size.w = w; size.h = h;
@@ -691,7 +711,7 @@ FW.Pixel = (() => {
   }
 
   return { init, render, size, fam, mat, vmat, flat, textTexture, stripeTexture, chevronTexture, spiralTexture,
-    foliageTexture, UVCELL, surfaceTexture, surfTex, surfMat, SURF, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
+    fitFov, setFov, foliageTexture, UVCELL, surfaceTexture, surfTex, surfMat, SURF, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
     get renderer() { return renderer; }, get envOutdoor() { return envOutdoor; }, get envIndoor() { return envIndoor; } };
 })();
 

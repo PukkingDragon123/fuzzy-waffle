@@ -10,7 +10,7 @@ FW.Kitchen = class {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#d8b98d');
     this.scene.environment = FW.Pixel.envIndoor;
-    this.camera = new THREE.PerspectiveCamera(46, FW.Pixel.size.aspect, 0.1, 60);
+    this.camera = new THREE.PerspectiveCamera(FW.Pixel.fitFov(46), FW.Pixel.size.aspect, 0.1, 60);
     // tap a station and the camera slides over to it
     this.stations = {
       wide:  { pos: new THREE.Vector3(0.4, 3.25, 3.75), look: new THREE.Vector3(0.4, 1.05, -0.55), fov: 52 },
@@ -850,7 +850,7 @@ FW.Kitchen = class {
       const px = U.clamp(m.nx, -1, 1) * 0.16, py = U.clamp(m.ny, -1, 1) * 0.09;
       this.camera.position.set(this.camPos.x + px, this.camPos.y + py, this.camPos.z);
       this.camera.lookAt(this.camLook);
-      if (Math.abs(this.camera.fov - this.camFov) > 0.02) { this.camera.fov = this.camFov; this.camera.updateProjectionMatrix(); }
+      FW.Pixel.setFov(this.camera, this.camFov);
     }
     if (this.phone) { this.phone.update(dt); }
     // the sponge follows the cursor while held
