@@ -24,7 +24,7 @@ FW.Orders = (() => {
     { name: 'Camper Momo', kind: 'rabbit', acc: 'beanie', likes: ['berry', 'fluffy'], quotes: ['Ooh, still warm!', 'Tent breakfast is the best breakfast.'] },
     { name: 'Hiker Juniper', kind: 'deer', acc: 'backpack', likes: ['hearty', 'banana'], quotes: ['Twelve miles today. Worth it.', 'You climbed all the way up here?!'] },
     { name: 'Basil the Photographer', kind: 'fox', acc: 'camera', likes: ['choco', 'sweet'], quotes: ['Golden hour AND golden waffles.', 'Say waffle!'] },
-    { name: 'Grandma Fern', kind: 'otter', acc: 'flower', likes: ['classic', 'honeybear'], quotes: ['Just like I used to make, dear.', 'You are such a sweet duck.'] },
+    { name: 'Grandma Fern', kind: 'otter', acc: 'flower', likes: ['classic', 'honeybear'], quotes: ['Just like I used to make, dear.', 'You are such a sweet wombat.'] },
     { name: 'Scout Wren', kind: 'squirrel', acc: 'cap', likes: ['sweet', 'choco'], quotes: ['Waffle badge: earned!', 'Did you see the bears? I saw the bears.'] },
   ];
   const DESTS = ['elcap', 'camp4', 'village', 'curry', 'mirror', 'glacier', 'bridalveil'];

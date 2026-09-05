@@ -21,6 +21,10 @@ hopping fences, grinding guardrails, launching off bouncy mushrooms, riding a ba
 timber flume, cutting through a hollow sequoia, dodging traffic, and honking at the bears
 who want your waffles. On a phone or tablet you get a **steering wheel and pedals**.
 
+The waffle iron's own lamp is the doneness readout — amber while it warms, a slow
+pulsing green through the golden window, an urgent red flash once it starts to catch
+and smoke. No meter, no numbers: you read the appliance.
+
 The look is **realistic**, not pixel art: full-resolution rendering with filmic tone
 mapping, image-based lighting, soft shadows, bloom, a warm grade and a touch of film
 grain. Asphalt, concrete, timber and stone are all real textures. **There is almost no

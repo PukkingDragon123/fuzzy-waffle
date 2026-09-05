@@ -65,7 +65,7 @@
     G.state = 'ride'; G.timer = G.timerMax = G.order.rideTime; G.hype = 0;
     HUD.ticket(G.order, { index: G.order.waffles.length, made: G.results });
     HUD.waffles(true, G.order.waffles.length, 0);
-    HUD.hint(`Deliver to <b>${HUD.esc(G.order.dest.name)}</b>! Space = hop/drift · Shift = trick in the air · H = quack at bears`);
+    HUD.hint(`Deliver to <b>${HUD.esc(G.order.dest.name)}</b>! Space = hop/drift · Shift = trick in the air · H = honk at bears`);
     A.playMusic('ride');
     HUD.touchControls(TOUCH);
     document.getElementById('game').style.cursor = 'default';
@@ -195,7 +195,7 @@
     if (G.state === 'title') return;
     G.paused = !G.paused;
     if (G.paused) {
-      HUD.panel(`<h2>Paused</h2><div>Day ${save.day} · ${save.coins} coins</div><div class="quote">Kitchen: drag ingredients into the bowl · stir the whisk in circles · tip the bowl onto the iron · click it to flip<br>Scooter: WASD/arrows · Space hop &amp; drift · Shift trick · H quack · R rescue</div>`,
+      HUD.panel(`<h2>Paused</h2><div>Day ${save.day} · ${save.coins} coins</div><div class="quote">Kitchen: tap the fridge, tap ingredients in, tap the bowl to stir and again to pour · lift the waffle when the iron's lamp goes green · tap a topping then the waffle · tap the box<br>Scooter: WASD/arrows · Space hop &amp; drift · Shift trick · H honk · R rescue</div>`,
         [{ label: 'Resume', onClick: togglePause }, { label: A.muted ? 'Unmute' : 'Mute', cls: 'alt', onClick: () => { A.setMuted(!A.muted); togglePause(); togglePause(); } }, { label: 'Reset save', cls: 'ghost', onClick: () => { if (confirm('Start over from Day 1?')) { save = defaultSave(); persist(); location.reload(); } } }]);
     } else HUD.closePanel();
   }

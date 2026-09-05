@@ -83,6 +83,8 @@ FW.Kitchen = class {
     this.lampLight = new THREE.PointLight('#ffb060', 2.4, 5.4, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
 
     const texMat = (tex, opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ map: tex, roughness: 0.85, metalness: 0 }, opts));
+    // painted, glazed, brushed and woven surfaces all come off the one atlas
+    const SM = FW.Pixel.surfMat;
     const slab = (w, h, d, mat, x, y, z, r = 0.05) => {
       const m = new THREE.Mesh(V.roundedBox(w, h, d, Math.min(r, w / 2.05, h / 2.05, d / 2.05)), mat);
       m.position.set(x, y, z); m.receiveShadow = true; m.castShadow = true; S.add(m); return m;
@@ -94,8 +96,8 @@ FW.Kitchen = class {
     slab(12, 4.8, 0.4, texMat(wallTex, { roughness: 0.95 }), 0, 2.4, -2.55, 0.06);
     const tileTex = FW.Pixel.tileTexture(); tileTex.repeat.set(2.6, 0.75);
     slab(12, 1.35, 0.44, texMat(tileTex, { roughness: 0.35, metalness: 0.05, envMapIntensity: 1.2 }), 0, 1.32, -2.5, 0.03);
-    slab(12, 0.12, 0.5, M('#8a5a2b'), 0, 2.02, -2.5, 0.04);
-    slab(12, 0.16, 0.5, M('#8a5a2b'), 0, 0.08, -2.5, 0.04);
+    slab(12, 0.12, 0.5, SM('#8a5a2b', 'wood', 14, 1), 0, 2.02, -2.5, 0.04);
+    slab(12, 0.16, 0.5, SM('#8a5a2b', 'wood', 14, 1), 0, 0.08, -2.5, 0.04);
     slab(0.4, 4.8, 8.5, texMat(wallTex, { roughness: 0.95 }), -5.0, 2.4, -0.6, 0.06);
     slab(0.4, 4.8, 8.5, texMat(wallTex, { roughness: 0.95 }), 5.0, 2.4, -0.6, 0.06);
     // rug
@@ -106,23 +108,23 @@ FW.Kitchen = class {
     // --- window with the valley outside ---
     const win = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.7), new THREE.MeshBasicMaterial({ map: this.windowTexture() }));
     win.position.set(-1.5, 2.5, -2.32); S.add(win);
-    const frame = new THREE.Mesh(V.torus(1.22, 0.09, 8, 26), M(P.cream)); frame.position.set(-1.5, 2.5, -2.28); frame.scale.set(1.0, 0.74, 1); S.add(frame);
-    slab(2.5, 0.09, 0.12, M(P.cream), -1.5, 2.5, -2.27, 0.04);
-    slab(0.09, 1.35, 0.12, M(P.cream), -1.5, 2.5, -2.27, 0.04);
-    slab(2.7, 0.14, 0.34, M('#b07c4a'), -1.5, 1.66, -2.34, 0.05);
-    for (let i = 0; i < 3; i++) { const pot = new THREE.Mesh(V.cyl(0.11, 0.09, 0.18, 10), M(['#c94a4a', '#4f9a5c', '#8f6cd0'][i])); pot.position.set(-2.1 + i * 0.6, 1.82, -2.3); pot.castShadow = true; S.add(pot);
+    const frame = new THREE.Mesh(V.torus(1.22, 0.09, 8, 26), SM(P.cream, 'paint', 8, 1)); frame.position.set(-1.5, 2.5, -2.28); frame.scale.set(1.0, 0.74, 1); S.add(frame);
+    slab(2.5, 0.09, 0.12, SM(P.cream, 'paint', 6, 1), -1.5, 2.5, -2.27, 0.04);
+    slab(0.09, 1.35, 0.12, SM(P.cream, 'paint', 1, 1), -1.5, 2.5, -2.27, 0.04);
+    slab(2.7, 0.14, 0.34, SM('#b07c4a', 'wood', 5, 1), -1.5, 1.66, -2.34, 0.05);
+    for (let i = 0; i < 3; i++) { const pot = new THREE.Mesh(V.cyl(0.11, 0.09, 0.18, 10), SM(['#c94a4a', '#4f9a5c', '#8f6cd0'][i], 'ceramic', 2, 1)); pot.position.set(-2.1 + i * 0.6, 1.82, -2.3); pot.castShadow = true; S.add(pot);
       const leaf = new THREE.Mesh(V.sphere(0.14, 8, 6), M('#4f9a5c')); leaf.position.set(-2.1 + i * 0.6, 1.98, -2.3); leaf.scale.y = 0.7; S.add(leaf); }
 
     // --- shelf, jars, pans, bunting ---
-    slab(3.2, 0.1, 0.44, M('#b07c4a'), 2.0, 2.3, -2.24, 0.03);
+    slab(3.2, 0.1, 0.44, SM('#b07c4a', 'wood', 7, 1), 2.0, 2.3, -2.24, 0.03);
     [['#ffb3b3', 0.75], ['#a8e6cf', 1.15], ['#f7c544', 1.55], ['#c9a0f0', 1.95], ['#8fd3f4', 2.35], ['#e5564a', 2.75], ['#fff3dc', 3.1]].forEach(([c, x], i) => {
       const h = 0.24 + (i % 2) * 0.1;
-      const jar = new THREE.Mesh(V.cyl(0.11, 0.12, h, 12), M(c, { roughness: 0.3, envMapIntensity: 1.2 }));
+      const jar = new THREE.Mesh(V.cyl(0.11, 0.12, h, 12), SM(c, 'ceramic', 2, 1, { roughness: 0.3, envMapIntensity: 1.2 }));
       jar.position.set(x, 2.35 + h / 2, -2.24); jar.castShadow = true; S.add(jar);
-      const lid = new THREE.Mesh(V.cyl(0.115, 0.115, 0.05, 12), M('#96663a')); lid.position.set(x, 2.37 + h, -2.24); S.add(lid);
+      const lid = new THREE.Mesh(V.cyl(0.115, 0.115, 0.05, 12), SM('#96663a', 'brushed', 3, 1, { roughness: 0.45, metalness: 0.35 })); lid.position.set(x, 2.37 + h, -2.24); S.add(lid);
     });
     for (let i = 0; i < 3; i++) {
-      const pan = new THREE.Mesh(V.cyl(0.24 - i * 0.03, 0.24 - i * 0.03, 0.07, 14), M('#b9bfd0', { roughness: 0.32, metalness: 0.3, envMapIntensity: 1.1 }));
+      const pan = new THREE.Mesh(V.cyl(0.24 - i * 0.03, 0.24 - i * 0.03, 0.07, 14), SM('#b9bfd0', 'brushed', 4, 1, { roughness: 0.32, metalness: 0.3, envMapIntensity: 1.1 }));
       pan.position.set(3.0 + i * 0.55, 3.05, -2.2); pan.rotation.x = Math.PI / 2; pan.castShadow = true; S.add(pan);
     }
     this.lights = [];
@@ -134,21 +136,21 @@ FW.Kitchen = class {
 
     // --- counter run ---
     const counterTex = FW.Pixel.woodTexture(['#d09a63', '#c48f59', '#d8a56c', '#bb8551']); counterTex.repeat.set(3, 1);
-    slab(6.2, 0.95, 1.4, M('#fff0d4'), 0.35, 0.475, 0.05, 0.08);
+    slab(6.2, 0.95, 1.4, SM('#fff0d4', 'paint', 4, 1), 0.35, 0.475, 0.05, 0.08);
     const ctop = new THREE.Mesh(V.roundedBox(6.4, 0.14, 1.54, 0.06), texMat(counterTex, { roughness: 0.55 }));
     ctop.position.set(0.35, 0.94, 0.05); ctop.receiveShadow = true; ctop.castShadow = true; S.add(ctop);
     // cabinet doors + handles
     for (let i = 0; i < 4; i++) {
       const x = -2.2 + i * 1.5;
-      slab(1.34, 0.72, 0.06, M('#f6e2c2'), x, 0.5, 0.73, 0.04);
-      const h = new THREE.Mesh(V.capsule(0.022, 0.16), M('#b9bfd0', { metalness: 0.6, roughness: 0.3 }));
+      slab(1.34, 0.72, 0.06, SM('#f6e2c2', 'paint', 1, 1), x, 0.5, 0.73, 0.04);
+      const h = new THREE.Mesh(V.capsule(0.022, 0.16), SM('#b9bfd0', 'brushed', 3, 1, { metalness: 0.6, roughness: 0.3 }));
       h.position.set(x + 0.5, 0.5, 0.79); S.add(h);
     }
     // sink
-    slab(0.9, 0.16, 0.62, M('#c9ced8', { metalness: 0.5, roughness: 0.25, envMapIntensity: 1.3 }), -2.15, 0.95, 0.08, 0.05);
-    const tap = new THREE.Mesh(V.capsule(0.035, 0.3), M('#c9ced8', { metalness: 0.7, roughness: 0.2 }));
+    slab(0.9, 0.16, 0.62, SM('#c9ced8', 'brushed', 5, 1, { metalness: 0.5, roughness: 0.25, envMapIntensity: 1.3 }), -2.15, 0.95, 0.08, 0.05);
+    const tap = new THREE.Mesh(V.capsule(0.035, 0.3), SM('#c9ced8', 'brushed', 2, 1, { metalness: 0.7, roughness: 0.2 }));
     tap.position.set(-2.15, 1.22, -0.22); S.add(tap);
-    const spout = new THREE.Mesh(V.capsule(0.032, 0.2), M('#c9ced8', { metalness: 0.7, roughness: 0.2 }));
+    const spout = new THREE.Mesh(V.capsule(0.032, 0.2), SM('#c9ced8', 'brushed', 2, 1, { metalness: 0.7, roughness: 0.2 }));
     spout.rotation.x = Math.PI / 2; spout.position.set(-2.15, 1.36, -0.12); S.add(spout);
 
     const reg = (obj, data, r, y) => {
@@ -163,17 +165,17 @@ FW.Kitchen = class {
     const fridge = new THREE.Group(); fridge.position.set(3.5, 0, -1.5); fridge.rotation.y = -0.34;
     // an open shell, so the shelves and food inside are actually visible
     fridge.add(V.build([
-      V.p(V.roundedBox(1.5, 2.5, 0.1, 0.04), '#e9ece9', 0, 1.25, -0.45, { mat: 'shiny' }),   // back
-      V.p(V.roundedBox(0.12, 2.5, 0.95, 0.04), '#e9ece9', -0.69, 1.25, 0, { mat: 'shiny' }), // sides
-      V.p(V.roundedBox(0.12, 2.5, 0.95, 0.04), '#e9ece9', 0.69, 1.25, 0, { mat: 'shiny' }),
-      V.p(V.roundedBox(1.5, 0.12, 0.95, 0.04), '#e9ece9', 0, 2.44, 0, { mat: 'shiny' }),      // top
-      V.p(V.roundedBox(1.5, 0.12, 0.95, 0.04), '#e9ece9', 0, 0.06, 0, { mat: 'shiny' }),      // base
-      V.p(V.roundedBox(1.34, 2.3, 0.03, 0.01), '#f6f8f7', 0, 1.25, -0.39),                    // liner
+      V.p(V.roundedBox(1.5, 2.5, 0.1, 0.04), '#e9ece9', 0, 1.25, -0.45, { tex: 'paint', rep: 4, mat: 'shiny' }),   // back
+      V.p(V.roundedBox(0.12, 2.5, 0.95, 0.04), '#e9ece9', -0.69, 1.25, 0, { tex: 'paint', rep: 4, mat: 'shiny' }), // sides
+      V.p(V.roundedBox(0.12, 2.5, 0.95, 0.04), '#e9ece9', 0.69, 1.25, 0, { tex: 'paint', rep: 4, mat: 'shiny' }),
+      V.p(V.roundedBox(1.5, 0.12, 0.95, 0.04), '#e9ece9', 0, 2.44, 0, { tex: 'paint', rep: 4, mat: 'shiny' }),      // top
+      V.p(V.roundedBox(1.5, 0.12, 0.95, 0.04), '#e9ece9', 0, 0.06, 0, { tex: 'paint', rep: 4, mat: 'shiny' }),      // base
+      V.p(V.roundedBox(1.34, 2.3, 0.03, 0.01), '#f6f8f7', 0, 1.25, -0.39, { tex: 'paint', rep: 4 }),                    // liner
       V.p(V.roundedBox(1.42, 0.06, 0.9, 0.02), '#c4c9c6', 0, 1.52, -0.02),
     ]));
     this.fridgeDoor = new THREE.Group(); this.fridgeDoor.position.set(0.74, 0, 0.47);
     this.fridgeDoor.add(V.build([
-      V.p(V.roundedBox(1.5, 2.5, 0.1, 0.06), '#f2f4f2', -0.75, 1.25, 0, { mat: 'shiny' }),
+      V.p(V.roundedBox(1.5, 2.5, 0.1, 0.06), '#f2f4f2', -0.75, 1.25, 0, { tex: 'paint', rep: 4, mat: 'shiny' }),
       V.p(V.roundedBox(0.07, 0.9, 0.09, 0.03), '#9aa2ab', -0.16, 1.55, 0.09, { mat: 'metal' }),
       V.p(V.roundedBox(1.5, 0.05, 0.11, 0.02), '#d6dad7', -0.75, 1.52, 0),
       V.p(V.roundedBox(0.18, 0.18, 0.02, 0.01), '#f7c544', -1.1, 2.0, 0.06),
@@ -184,17 +186,17 @@ FW.Kitchen = class {
     // shelves and the ingredient crates inside
     const inner = new THREE.Group(); inner.position.set(0, 0, 0); fridge.add(inner);
     inner.add(V.build([
-      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 1.74, 0.0, { mat: 'shiny' }),
-      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 1.18, 0.0, { mat: 'shiny' }),
-      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 0.62, 0.0, { mat: 'shiny' }),
+      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 1.74, 0.0, { tex: 'paint', rep: 4, mat: 'shiny' }),
+      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 1.18, 0.0, { tex: 'paint', rep: 4, mat: 'shiny' }),
+      V.p(V.roundedBox(1.28, 0.04, 0.78, 0.015), '#e8edeb', 0, 0.62, 0.0, { tex: 'paint', rep: 4, mat: 'shiny' }),
       V.p(V.roundedBox(1.2, 0.3, 0.06, 0.02), '#dfe6e3', 0, 0.32, 0.34),
     ]));
     this.fridgeLight = new THREE.PointLight('#fff6e0', 0, 2.0, 2); this.fridgeLight.position.set(3.35, 1.6, -1.08); S.add(this.fridgeLight);
     this.fridgeItems = [];
     const ING_MODELS = {
-      flour: () => V.build([V.p(V.roundedBox(0.24, 0.3, 0.18, 0.05), '#f2ecdf', 0, 0.15, 0, { mat: 'soft' }), V.p(V.roundedBox(0.16, 0.1, 0.02, 0.02), '#e5564a', 0, 0.17, 0.1)]),
-      sugar: () => V.build([V.p(V.cyl(0.12, 0.11, 0.24, 12), '#fbe9f0', 0, 0.12, 0, { mat: 'shiny' }), V.p(V.cyl(0.13, 0.13, 0.05, 12), '#b46e3f', 0, 0.26, 0)]),
-      egg: () => V.build([V.p(V.roundedBox(0.3, 0.1, 0.2, 0.04), '#c9a177', 0, 0.05, 0, { mat: 'soft' }),
+      flour: () => V.build([V.p(V.roundedBox(0.24, 0.3, 0.18, 0.05), '#f2ecdf', 0, 0.15, 0, { mat: 'soft', tex: 'card', rep: 2 }), V.p(V.roundedBox(0.16, 0.1, 0.02, 0.02), '#e5564a', 0, 0.17, 0.1)]),
+      sugar: () => V.build([V.p(V.cyl(0.12, 0.11, 0.24, 12), '#fbe9f0', 0, 0.12, 0, { mat: 'shiny', tex: 'ceramic', rep: 2 }), V.p(V.cyl(0.13, 0.13, 0.05, 12), '#b46e3f', 0, 0.26, 0)]),
+      egg: () => V.build([V.p(V.roundedBox(0.3, 0.1, 0.2, 0.04), '#c9a177', 0, 0.05, 0, { mat: 'soft', tex: 'card', rep: 2 }),
         ...[-1, 0, 1].map((i) => V.p(V.sphere(0.062, 10, 8), '#fff5e0', i * 0.09, 0.13, 0, { sy: 1.3, mat: 'soft' }))]),
       milk: () => V.build([V.p(V.cyl(0.1, 0.11, 0.28, 12), '#f2f6ff', 0, 0.14, 0, { mat: 'shiny' }), V.p(V.cyl(0.05, 0.06, 0.09, 10), '#f2f6ff', 0, 0.32, 0, { mat: 'shiny' }), V.p(V.cyl(0.06, 0.06, 0.04, 10), '#4a7fd6', 0, 0.38, 0)]),
     };
@@ -214,9 +216,9 @@ FW.Kitchen = class {
     // --- bowl ---
     const bowl = new THREE.Group();
     bowl.add(V.build([
-      V.p(V.sphere(0.3, 18, 11, { thetaS: Math.PI / 2, thetaL: Math.PI / 2 }), '#f7efe0', 0, 0.29, 0, { sy: 0.9, mat: 'shell' }),
+      V.p(V.sphere(0.3, 18, 11, { thetaS: Math.PI / 2, thetaL: Math.PI / 2 }), '#f7efe0', 0, 0.29, 0, { sy: 0.9, mat: 'shell', tex: 'ceramic', rep: 3 }),
       V.p(V.torus(0.296, 0.03, 6, 22), '#4a7fd6', 0, 0.29, 0, { rx: Math.PI / 2 }),
-      V.p(V.cyl(0.13, 0.09, 0.04, 12), '#e6ddc9', 0, 0.02, 0),
+      V.p(V.cyl(0.13, 0.09, 0.04, 12), '#e6ddc9', 0, 0.02, 0, { tex: 'ceramic', rep: 2 }),
     ]));
     this.batter = new THREE.Mesh(V.cyl(0.25, 0.19, 0.06, 18), M('#f7e6b8', { roughness: 0.42 }));
     this.batter.position.y = 0.09; this.batter.visible = false; bowl.add(this.batter);
@@ -235,15 +237,15 @@ FW.Kitchen = class {
     // --- waffle iron ---
     const ironG = new THREE.Group(); ironG.position.set(0.15, TOP, -0.08);
     ironG.add(V.build([
-      V.p(V.roundedBox(0.14, 0.13, 0.14, 0.05), '#c8ccd8', -0.28, 0.065, 0, { mat: 'shiny' }),
-      V.p(V.roundedBox(0.14, 0.13, 0.14, 0.05), '#c8ccd8', 0.28, 0.065, 0, { mat: 'shiny' }),
-      V.p(V.roundedBox(0.78, 0.05, 0.48, 0.02), '#8a5a2b', 0, 0.02, 0),
+      V.p(V.roundedBox(0.14, 0.13, 0.14, 0.05), '#c8ccd8', -0.28, 0.065, 0, { mat: 'shiny', tex: 'brushed', rep: 3 }),
+      V.p(V.roundedBox(0.14, 0.13, 0.14, 0.05), '#c8ccd8', 0.28, 0.065, 0, { mat: 'shiny', tex: 'brushed', rep: 3 }),
+      V.p(V.roundedBox(0.78, 0.05, 0.48, 0.02), '#8a5a2b', 0, 0.02, 0, { tex: 'wood', rep: 4 }),
     ]));
     this.ironPivot = new THREE.Group(); this.ironPivot.position.y = 0.14; ironG.add(this.ironPivot);
     this.ironPivot.add(V.build([
-      V.p(V.cyl(0.35, 0.37, 0.11, 22), '#e5564a', 0, 0, 0, { mat: 'shiny' }),
+      V.p(V.cyl(0.35, 0.37, 0.11, 22), '#e5564a', 0, 0, 0, { mat: 'shiny', tex: 'paint', rep: 4 }),
       V.p(V.torus(0.35, 0.035, 6, 24), '#fff3dc', 0, 0.02, 0, { rx: Math.PI / 2 }),
-      V.p(V.cyl(0.3, 0.3, 0.03, 20), '#8e8a99', 0, 0.06, 0, { mat: 'shiny' }),
+      V.p(V.cyl(0.3, 0.3, 0.03, 20), '#8e8a99', 0, 0.06, 0, { mat: 'shiny', tex: 'brushed', rep: 4 }),
       ...[-0.19, -0.065, 0.065, 0.19].flatMap((v) => {
         const half = Math.sqrt(Math.max(0.001, 0.29 * 0.29 - v * v));
         return [V.p(V.roundedBox(0.045, 0.05, half * 2, 0.02), '#6e6a7a', v, 0.075, 0, { mat: 'shiny' }),
@@ -252,14 +254,14 @@ FW.Kitchen = class {
     ]));
     this.lid = new THREE.Group(); this.lid.position.set(0, 0.06, -0.35);
     this.lid.add(V.build([
-      V.p(V.cyl(0.35, 0.35, 0.12, 22), '#e5564a', 0, 0.05, 0.35, { mat: 'shiny' }),
+      V.p(V.cyl(0.35, 0.35, 0.12, 22), '#e5564a', 0, 0.05, 0.35, { mat: 'shiny', tex: 'paint', rep: 4 }),
       V.p(V.torus(0.35, 0.035, 6, 24), '#fff3dc', 0, 0.05, 0.35, { rx: Math.PI / 2 }),
-      V.p(V.cyl(0.3, 0.3, 0.03, 20), '#a5a1b0', 0, -0.005, 0.35, { mat: 'shiny' }),
+      V.p(V.cyl(0.3, 0.3, 0.03, 20), '#a5a1b0', 0, -0.005, 0.35, { mat: 'shiny', tex: 'brushed', rep: 4 }),
       V.p(V.capsule(0.035, 0.18), '#fff3dc', 0, 0.12, 0.7, { rz: Math.PI / 2, mat: 'soft' }),
     ]));
     this.ironLight = new THREE.Mesh(V.sphere(0.036, 8, 6), FW.Pixel.flat('#552222'));
     this.ironLight.position.set(0.18, 0.11, 0.63); this.lid.add(this.ironLight);
-    this.lid.rotation.x = -2.0; this.ironPivot.add(this.lid);
+    this.lid.rotation.x = -2.45; this.ironPivot.add(this.lid);
     this.ironBatter = new THREE.Mesh(V.cyl(0.28, 0.26, 0.05, 18), M('#f7e6b8', { roughness: 0.45 }));
     this.ironBatter.position.y = 0.11; this.ironBatter.visible = false; this.ironPivot.add(this.ironBatter);
     this.ironWaffle = V.waffle(0.46); this.ironWaffle.position.y = 0.1; this.ironWaffle.visible = false; this.ironPivot.add(this.ironWaffle);
@@ -268,7 +270,7 @@ FW.Kitchen = class {
 
     // --- plate + waffle ---
     const plate = V.build([
-      V.p(V.cyl(0.33, 0.28, 0.045, 22), '#f4ebda', 0, 0.022, 0, { mat: 'soft' }),
+      V.p(V.cyl(0.33, 0.28, 0.045, 22), '#f4ebda', 0, 0.022, 0, { mat: 'soft', tex: 'ceramic', rep: 3 }),
       V.p(V.torus(0.315, 0.028, 6, 24), '#4a7fd6', 0, 0.042, 0),
     ]);
     plate.position.set(1.15, TOP, 0.3); S.add(plate);
@@ -284,7 +286,7 @@ FW.Kitchen = class {
       const t = V.TOPPINGS[k], col = i % 4, row = Math.floor(i / 4);
       const g = new THREE.Group();
       g.add(V.build([
-        V.p(V.cyl(0.155, 0.12, 0.1, 16), '#fffaf0', 0, 0.05, 0, { mat: 'shiny' }),
+        V.p(V.cyl(0.155, 0.12, 0.1, 16), '#fffaf0', 0, 0.05, 0, { mat: 'shiny', tex: 'ceramic', rep: 2 }),
         V.p(V.torus(0.152, 0.018, 5, 18), '#7fd1c0', 0, 0.1, 0),
         V.p(V.sphere(0.125, 12, 8), t.color, 0, 0.11, 0, { sy: 0.52, mat: k === 'syrup' || k === 'honey' ? 'shiny' : 'soft' }),
       ]));
@@ -296,16 +298,16 @@ FW.Kitchen = class {
     // --- delivery box ---
     const bx = new THREE.Group();
     bx.add(V.build([
-      V.p(V.roundedBox(0.5, 0.06, 0.46, 0.03), P.cream, 0, 0.03, 0, { mat: 'soft' }),
-      V.p(V.roundedBox(0.05, 0.26, 0.46, 0.025), P.cream, -0.23, 0.13, 0, { mat: 'soft' }),
-      V.p(V.roundedBox(0.05, 0.26, 0.46, 0.025), P.cream, 0.23, 0.13, 0, { mat: 'soft' }),
-      V.p(V.roundedBox(0.5, 0.26, 0.05, 0.025), P.cream, 0, 0.13, -0.21, { mat: 'soft' }),
-      V.p(V.roundedBox(0.5, 0.26, 0.05, 0.025), P.cream, 0, 0.13, 0.21, { mat: 'soft' }),
+      V.p(V.roundedBox(0.5, 0.06, 0.46, 0.03), P.cream, 0, 0.03, 0, { mat: 'soft', tex: 'card', rep: 3 }),
+      V.p(V.roundedBox(0.05, 0.26, 0.46, 0.025), P.cream, -0.23, 0.13, 0, { mat: 'soft', tex: 'card', rep: 3 }),
+      V.p(V.roundedBox(0.05, 0.26, 0.46, 0.025), P.cream, 0.23, 0.13, 0, { mat: 'soft', tex: 'card', rep: 3 }),
+      V.p(V.roundedBox(0.5, 0.26, 0.05, 0.025), P.cream, 0, 0.13, -0.21, { mat: 'soft', tex: 'card', rep: 3 }),
+      V.p(V.roundedBox(0.5, 0.26, 0.05, 0.025), P.cream, 0, 0.13, 0.21, { mat: 'soft', tex: 'card', rep: 3 }),
       V.p(V.roundedBox(0.52, 0.04, 0.48, 0.02), P.red, 0, 0.27, 0),
     ]));
     this.boxLid = new THREE.Group(); this.boxLid.position.set(0, 0.28, -0.23);
     this.boxLid.add(V.build([
-      V.p(V.roundedBox(0.52, 0.05, 0.48, 0.025), P.cream, 0, 0, 0.23, { mat: 'soft' }),
+      V.p(V.roundedBox(0.52, 0.05, 0.48, 0.025), P.cream, 0, 0, 0.23, { mat: 'soft', tex: 'card', rep: 3 }),
       V.p(V.cyl(0.12, 0.12, 0.02, 14), P.gold, 0, 0.035, 0.23, { rx: Math.PI / 2, mat: 'soft' }),
       V.p(V.roundedBox(0.02, 0.17, 0.02, 0.008), P.brown, -0.045, 0.045, 0.23),
       V.p(V.roundedBox(0.02, 0.17, 0.02, 0.008), P.brown, 0.045, 0.045, 0.23),
@@ -318,8 +320,8 @@ FW.Kitchen = class {
 
     // --- sponge by the sink ---
     const sponge = V.build([
-      V.p(V.roundedBox(0.26, 0.1, 0.18, 0.04), '#f7d84a', 0, 0.05, 0, { mat: 'soft' }),
-      V.p(V.roundedBox(0.26, 0.05, 0.18, 0.03), '#3aa6a6', 0, 0.12, 0, { mat: 'soft' }),
+      V.p(V.roundedBox(0.26, 0.1, 0.18, 0.04), '#f7d84a', 0, 0.05, 0, { mat: 'soft', tex: 'cloth', rep: 3 }),
+      V.p(V.roundedBox(0.26, 0.05, 0.18, 0.03), '#3aa6a6', 0, 0.12, 0, { mat: 'soft', tex: 'cloth', rep: 4 }),
     ]);
     sponge.position.set(-2.15, TOP + 0.08, 0.42);
     reg(sponge, { kind: 'sponge', label: 'Sponge — tap it, then tap a mess', station: 'prep' }, 0.2, 0.08);
@@ -329,9 +331,9 @@ FW.Kitchen = class {
     // --- the wombat chef ---
     // a wombat is a low animal — it needs a step to reach the counter
     const step = V.build([
-      V.p(V.roundedBox(1.15, 0.42, 0.7, 0.06), '#b07c4a', 0, 0.21, 0, { mat: 'soft' }),
-      V.p(V.roundedBox(1.2, 0.07, 0.75, 0.03), '#c9945e', 0, 0.44, 0),
-      V.p(V.roundedBox(1.0, 0.06, 0.6, 0.02), '#96663a', 0, 0.06, 0),
+      V.p(V.roundedBox(1.15, 0.42, 0.7, 0.06), '#b07c4a', 0, 0.21, 0, { mat: 'soft', tex: 'wood', rep: 3 }),
+      V.p(V.roundedBox(1.2, 0.07, 0.75, 0.03), '#c9945e', 0, 0.44, 0, { tex: 'wood', rep: 3 }),
+      V.p(V.roundedBox(1.0, 0.06, 0.6, 0.02), '#96663a', 0, 0.06, 0, { tex: 'wood', rep: 3 }),
     ]);
     step.position.set(0.9, 0, -1.12); S.add(step);
     this.chef = V.hero({});
@@ -370,19 +372,93 @@ FW.Kitchen = class {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   }
   windowTexture() {
-    const S = 128, c = document.createElement('canvas'); c.width = S; c.height = 96;
+    // The view out of the window used to be a flat cartoon. Paint it like a
+    // photograph instead: a graded sky, layered ridges fading into haze, a
+    // granite wall catching the sun, and a treeline drawn strand by strand.
+    const W = 768, H = 560, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
-    const grd = g.createLinearGradient(0, 0, 0, 96); grd.addColorStop(0, '#6fb3e8'); grd.addColorStop(0.65, '#bfe0f5'); grd.addColorStop(1, '#ffdcb4');
-    g.fillStyle = grd; g.fillRect(0, 0, S, 96);
-    g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(98, 18, 9, 0, 7); g.fill();
-    g.fillStyle = '#ffffff'; for (const [x, y, r] of [[28, 20, 8], [36, 17, 10], [46, 21, 7], [80, 34, 6], [88, 32, 8]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
-    g.fillStyle = '#b3aec2'; g.beginPath(); g.moveTo(18, 66); g.quadraticCurveTo(44, 16, 68, 66); g.fill();
-    g.fillStyle = '#c9c4d4'; g.beginPath(); g.moveTo(60, 66); g.quadraticCurveTo(86, 30, 112, 66); g.fill();
-    g.fillStyle = '#f6f7fb'; g.beginPath(); g.moveTo(36, 34); g.lineTo(44, 24); g.lineTo(52, 36); g.fill();
-    g.fillStyle = '#2f6244'; g.beginPath(); g.moveTo(0, 96); g.lineTo(0, 60); g.quadraticCurveTo(64, 50, 128, 58); g.lineTo(128, 96); g.fill();
-    g.fillStyle = '#3a7350'; for (let i = 0; i < 12; i++) { const x = 3 + i * 11, h = 14 + (i % 3) * 7; g.beginPath(); g.moveTo(x, 72); g.lineTo(x + 5, 72 - h); g.lineTo(x + 10, 72); g.fill(); }
-    g.fillStyle = '#6aa84a'; g.fillRect(0, 72, S, 24);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+    const R = (a, b) => a + Math.random() * (b - a);
+    // sky
+    const sky = g.createLinearGradient(0, 0, 0, H * 0.72);
+    sky.addColorStop(0, '#4b83bd'); sky.addColorStop(0.42, '#8fb9dc');
+    sky.addColorStop(0.78, '#cfdfe6'); sky.addColorStop(1, '#e8e2d4');
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    // sun haze
+    const sun = g.createRadialGradient(W * 0.78, H * 0.16, 4, W * 0.78, H * 0.16, W * 0.42);
+    sun.addColorStop(0, 'rgba(255,247,222,0.95)'); sun.addColorStop(0.25, 'rgba(255,240,205,0.28)'); sun.addColorStop(1, 'rgba(255,240,205,0)');
+    g.fillStyle = sun; g.fillRect(0, 0, W, H);
+    // soft cloud banks
+    for (let i = 0; i < 30; i++) {
+      const x = R(0, W), y = R(H * 0.06, H * 0.34), r = R(24, 92);
+      const cg = g.createRadialGradient(x, y, 0, x, y, r);
+      cg.addColorStop(0, `rgba(255,255,255,${R(0.14, 0.4).toFixed(2)})`); cg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = cg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+    // ridge layers, each hazier than the one behind it
+    const ridge = (baseY, amp, col, haze) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, H);
+      g.lineTo(0, baseY);
+      for (let x = 0; x <= W; x += 8) {
+        const n = Math.sin(x * 0.006 + baseY) * amp + Math.sin(x * 0.021 + baseY * 0.5) * amp * 0.4 + Math.sin(x * 0.05) * amp * 0.12;
+        g.lineTo(x, baseY - n);
+      }
+      g.lineTo(W, H); g.closePath(); g.fill();
+      if (haze) { g.fillStyle = haze; g.fillRect(0, baseY - amp * 1.6, W, H - baseY + amp * 1.6); }
+    };
+    ridge(H * 0.52, 54, '#8fa3b0', 'rgba(207,223,230,0.55)');
+    ridge(H * 0.60, 44, '#6f8493', 'rgba(207,223,230,0.34)');
+    // the granite wall: a lit face and a shaded one, with fracture lines
+    g.save(); g.beginPath();
+    g.moveTo(W * 0.06, H); g.lineTo(W * 0.10, H * 0.60); g.lineTo(W * 0.24, H * 0.30);
+    g.lineTo(W * 0.40, H * 0.52); g.lineTo(W * 0.46, H); g.closePath(); g.clip();
+    const gr = g.createLinearGradient(W * 0.06, 0, W * 0.46, 0);
+    gr.addColorStop(0, '#7c7a78'); gr.addColorStop(0.5, '#b3ada4'); gr.addColorStop(1, '#8e8a84');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 90; i++) {
+      g.strokeStyle = `rgba(60,58,56,${R(0.05, 0.22).toFixed(2)})`; g.lineWidth = R(0.7, 2.4);
+      const x = R(W * 0.06, W * 0.46), y = R(H * 0.3, H);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-30, 30), y + R(30, 130)); g.stroke();
+    }
+    g.restore();
+    // conifer treeline, drawn as individual silhouettes so it reads as forest
+    const treeline = (baseY, hMin, hMax, col, n) => {
+      g.fillStyle = col;
+      for (let i = 0; i < n; i++) {
+        const x = (i / n) * W + R(-6, 6), h = R(hMin, hMax), w = h * R(0.2, 0.32);
+        g.beginPath(); g.moveTo(x, baseY);
+        for (let k = 0; k <= 7; k++) {
+          const t = k / 7, y = baseY - h * t, ww = w * (1 - t) * (0.6 + 0.4 * Math.abs(Math.sin(k * 2.1)));
+          g.lineTo(x - ww, y);
+        }
+        g.lineTo(x, baseY - h);
+        for (let k = 7; k >= 0; k--) {
+          const t = k / 7, y = baseY - h * t, ww = w * (1 - t) * (0.6 + 0.4 * Math.abs(Math.sin(k * 2.1)));
+          g.lineTo(x + ww, y);
+        }
+        g.closePath(); g.fill();
+      }
+    };
+    treeline(H * 0.78, 60, 130, 'rgba(52,72,62,0.85)', 90);
+    treeline(H * 0.88, 90, 190, '#20362c', 70);
+    // meadow floor
+    const mg = g.createLinearGradient(0, H * 0.84, 0, H);
+    mg.addColorStop(0, '#4d6b3c'); mg.addColorStop(1, '#6d8a48');
+    g.fillStyle = mg; g.fillRect(0, H * 0.84, W, H * 0.16);
+    for (let i = 0; i < 1200; i++) {
+      g.strokeStyle = `rgba(${30 + Math.random() * 60 | 0},${70 + Math.random() * 60 | 0},${40 + Math.random() * 40 | 0},${R(0.15, 0.5).toFixed(2)})`;
+      g.lineWidth = R(0.8, 1.8);
+      const x = R(0, W), y = R(H * 0.84, H);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-3, 3), y - R(4, 12)); g.stroke();
+    }
+    // glass: a faint sheen and a little grime in the corners
+    const sheen = g.createLinearGradient(0, 0, W, H);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.16)'); sheen.addColorStop(0.35, 'rgba(255,255,255,0)');
+    sheen.addColorStop(0.75, 'rgba(255,255,255,0)'); sheen.addColorStop(1, 'rgba(255,255,255,0.10)');
+    g.fillStyle = sheen; g.fillRect(0, 0, W, H);
+    const vig = g.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.8);
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(40,45,50,0.22)');
+    g.fillStyle = vig; g.fillRect(0, 0, W, H);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
   }
 
   // ---------- mess ----------
@@ -442,15 +518,17 @@ FW.Kitchen = class {
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
     this.toppingMeshes = {};
     this.lumpG.clear(); this.lumps = [];
-    this.ironPivot.rotation.x = 0; this.lid.rotation.x = -2.0; this.ironLight.material.color.set('#552222');
+    this.ironPivot.rotation.x = 0; this.lid.rotation.x = -2.45; this.ironLight.material.color.set('#552222');
     this.whisk.visible = true; this.whisk.position.set(this.bowl.position.x, this.TOP + 0.06, this.bowl.position.z);
     const r = this.order.waffles[this.index].recipe;
     this.hint(`Waffle ${this.index + 1}/${this.order.waffles.length}: <b>${FW.HUD.esc(r.name)}</b> — tap the <b>fridge</b> for ingredients`);
     this.progress();
     FW.Audio.sfx.bell();
   }
-  toggleFridge() {
-    this.fridgeOpen = !this.fridgeOpen;
+  toggleFridge(open) {
+    const want = open === undefined ? !this.fridgeOpen : !!open;
+    if (want === this.fridgeOpen) return;
+    this.fridgeOpen = want;
     this.tween(this.fridgeDoor, 'rotation', { y: this.fridgeOpen ? -2.1 : 0 }, 0.45, null, FW.Kitchen.easeBack);
     FW.Audio.sfx.clack();
     this.pop(this.fridge, 5);
@@ -574,7 +652,7 @@ FW.Kitchen = class {
     this.chefSq.kick(12); this.pop(this.ironG, 14);
     for (let i = 0; i < 16; i++) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.6, y: this.TOP + 0.3, z: this.ironG.position.z + (Math.random() - 0.5) * 0.5, vy: 0.9 + Math.random() * 0.6, life: 1.2, size: 0.06, color: '#ffffff', gravity: -0.5, shrink: false });
     const dn = this.cur.doneness;
-    this.tween(this.lid, 'rotation', { x: -2.0 }, 0.34, () => {
+    this.tween(this.lid, 'rotation', { x: -2.45 }, 0.34, () => {
       this.ironBatter.visible = false;
       this.plateWaffle.visible = true; this.plateWaffle.userData.setDoneness(dn);
       this.plateWaffle.position.set(this.ironG.position.x, this.TOP + 0.55, this.ironG.position.z);
@@ -679,6 +757,8 @@ FW.Kitchen = class {
   goTo(station) {
     if (!this.stations[station] || this.station === station) return;
     this.station = station;
+    // walking away from the fridge shuts it, the way you would
+    if (station !== 'plate') this.toggleFridge(false);
     FW.Audio.sfx.pick();
   }
   tap(hitObj, point, m) {
@@ -813,12 +893,22 @@ FW.Kitchen = class {
       this.cook += 16 * dt;
       const d = this.cook / 100;
       const golden = Math.abs(d - 0.58) < 0.13;
-      this.ironLight.material.color.set(golden ? '#7ed37a' : d > 0.85 ? '#3a2018' : '#e5564a');
+      // the iron's own lamp is the doneness readout: amber while it warms,
+      // a steady pulsing green in the golden window, an urgent red flash once
+      // it starts to catch. No meter, no numbers — you read the appliance.
+      const burning = d > 0.8;
+      const pulse = 0.55 + 0.45 * Math.sin(this.t * (burning ? 16 : golden ? 6 : 2.5));
+      const lamp = this.ironLight.material.color;
+      if (golden) lamp.set('#7ed37a').multiplyScalar(0.55 + pulse * 0.65);
+      else if (burning) lamp.set('#ff4a2a').multiplyScalar(0.35 + pulse * 0.9);
+      else lamp.set('#f0a02a').multiplyScalar(0.3 + pulse * 0.35);
+      // and it smokes once it is past saving
+      if (burning && Math.random() < dt * 14) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.3, y: this.TOP + 0.3, z: this.ironG.position.z + 0.1, vy: 0.75, vx: (Math.random() - 0.5) * 0.25, life: 1.6, size: 0.06, color: '#4a4038', gravity: -0.5, shrink: false });
       const steam = d < 0.25 ? 4 : d < 0.75 ? 18 : 8;
       if (Math.random() < dt * steam) this.fx.spawn({ x: this.ironG.position.x + (Math.random() - 0.5) * 0.6, y: this.TOP + 0.28, z: this.ironG.position.z + (Math.random() - 0.5) * 0.4, vy: 0.6 + Math.random() * 0.4, vx: (Math.random() - 0.5) * 0.2, vz: (Math.random() - 0.5) * 0.2, life: 1.2, size: 0.05, color: d > 0.85 ? '#6a6a6a' : '#ffffff', gravity: -0.45, shrink: false });
       // a golden smell wisp — the tell that it is ready
       if (golden && Math.random() < dt * 9) this.fx.spawn({ x: this.ironG.position.x, y: this.TOP + 0.34, z: this.ironG.position.z + 0.1, vy: 0.5, vx: (Math.random() - 0.5) * 0.3, life: 1.3, size: 0.045, color: '#f7c544', gravity: -0.4, shrink: false });
-      FW.Audio.setSizzle(golden ? 1.35 : 1);
+      FW.Audio.setSizzle(golden ? 1.35 : burning ? 1.7 : 1);
       this.ironG.rotation.z = Math.sin(this.t * 26) * (golden ? 0.012 : 0.004);
       if (this.cook > 130) this.lift();
       if (d > 0.95 && Math.random() < dt * 0.5) this.spillNear(this.ironG, '#5a4a3a', false);

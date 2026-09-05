@@ -10,6 +10,8 @@ FW.Pixel = (() => {
   const size = { W: 320, H: 180, aspect: 16 / 9, scale: 3, w: 1280, h: 720 };
   const PIXEL = 3.4;           // on-screen size of one rendered pixel
   const MAXH = 1440;           // cap the internal buffer on very tall displays
+  // ?lowres=N caps the internal buffer height (headless/software-render testing).
+  const LOWRES = (() => { const m = /[?&]lowres=(\d+)/.exec(location.search); return m ? +m[1] : 0; })();
 
   // ---------- shaders ----------
   const VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -57,7 +59,7 @@ FW.Pixel = (() => {
 
   function init(canvas) {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setPixelRatio(LOWRES ? 1 : Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -67,8 +69,8 @@ FW.Pixel = (() => {
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.26 }, levels: { value: 52.0 }, vignette: { value: 0.26 }, warm: { value: 1.0 }, sat: { value: 1.04 } } });
-    brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.82 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.15 }, levels: { value: 52.0 }, vignette: { value: 0.26 }, warm: { value: 1.0 }, sat: { value: 1.04 } } });
+    brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.94 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
     quad.frustumCulled = false;
@@ -113,7 +115,7 @@ FW.Pixel = (() => {
     size.w = w; size.h = h;
     // full resolution: no pixel filter any more, just a filmic composite
     size.scale = 1;
-    size.H = Math.min(MAXH, h);
+    size.H = Math.min(LOWRES || MAXH, h);
     size.scale = h / size.H;
     size.W = Math.ceil(w / size.scale);
     size.aspect = size.W / size.H;
@@ -162,17 +164,17 @@ FW.Pixel = (() => {
     const base = { vertexColors: true, envMapIntensity: 0.75 };
     let m;
     switch (name) {
-      case 'soft': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.78, metalness: 0.0 }); break;
-      case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.32, metalness: 0.04, envMapIntensity: 1.05 }); break;
-      case 'metal': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.26, metalness: 0.9, envMapIntensity: 1.2 }); break;
+      case 'soft': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.78, metalness: 0.0 }); break;
+      case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.32, metalness: 0.04, envMapIntensity: 1.05 }); break;
+      case 'metal': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.26, metalness: 0.9, envMapIntensity: 1.2 }); break;
       case 'glow': m = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }); break;
       case 'glass': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.08, metalness: 0.0, transparent: true, opacity: 0.55, envMapIntensity: 1.4 }); break;
-      case 'shell': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.34, metalness: 0.02, side: THREE.DoubleSide, envMapIntensity: 1.0 }); break;
-      case 'shellMatte': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide }); break;
+      case 'shell': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.34, metalness: 0.02, side: THREE.DoubleSide, envMapIntensity: 1.0 }); break;
+      case 'shellMatte': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide }); break;
       // cut-out foliage: every leaf card and every trunk shares one atlas, so a
       // whole forest chunk is a single draw call
       case 'leafy': m = new THREE.MeshStandardMaterial({ ...base, map: foliageTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.94, metalness: 0, envMapIntensity: 0.5 }); break;
-      default: m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.95, metalness: 0.0 });
+      default: m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.95, metalness: 0.0 });
     }
     return (cache[name] = m);
   }
@@ -234,6 +236,160 @@ FW.Pixel = (() => {
   // UV rects into the atlas, inset so neighbouring cells never bleed in
   const E = 0.014;
   const UVCELL = { solid: [0.12, 0.62, 0.38, 0.88], needle: [0.5 + E, 0.5 + E, 1 - E, 1 - E], leaf: [E, E, 0.5 - E, 0.5 - E], grass: [0.5 + E, E, 1 - E, 0.5 - E] };
+
+  // ---------- surface library ----------
+  // Every material's fine detail is drawn once to canvas, greyscale, and
+  // multiplied over the part's flat colour. Each surface is painted by one
+  // function so it can be issued two ways:
+  //   * as a standalone tiling texture (surfTex) for its own mesh, and
+  //   * as one band of a single stacked atlas (surfaceTexture) for parts that
+  //     get merged into a shared draw call.
+  // Bands are drawn to tile in both axes and carry no single-pixel noise —
+  // unfiltered 1px speckle turns into moire stripes the moment a surface is
+  // minified, which is exactly what a cabinet door does at any distance.
+  const BW = 512, BH = 128;
+  const R = (a, b) => a + Math.random() * (b - a);
+  const PAINTERS = {
+    blank: (g) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH); },
+    // long grain, a few knots, a plank seam top and bottom
+    wood: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      for (let i = 0; i < 200; i++) {
+        const y = R(0, BH), h = R(1.2, 3.4), d = R(0.04, 0.15);
+        g.fillStyle = `rgba(90,60,35,${d.toFixed(3)})`;
+        g.beginPath(); g.moveTo(0, y);
+        for (let x = 0; x <= BW; x += 32) g.lineTo(x, y + Math.sin((x / BW) * Math.PI * 2 + i) * 2.6);
+        for (let x = BW; x >= 0; x -= 32) g.lineTo(x, y + h + Math.sin((x / BW) * Math.PI * 2 + i) * 2.6);
+        g.closePath(); g.fill();
+      }
+      for (let i = 0; i < 3; i++) {
+        const cx = R(60, BW - 60), cy = R(24, BH - 24);
+        for (let r = 13; r > 1.5; r -= 2.2) {
+          g.strokeStyle = `rgba(70,45,25,${(0.05 + r * 0.007).toFixed(3)})`; g.lineWidth = 1.6;
+          g.beginPath(); g.ellipse(cx, cy, r, r * 0.55, 0.4, 0, 7); g.stroke();
+        }
+      }
+      g.fillStyle = 'rgba(60,40,22,0.28)'; g.fillRect(0, 0, BW, 2); g.fillRect(0, BH - 2, BW, 2);
+    },
+    // roller mottle — soft, directionless, low frequency
+    paint: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      for (let i = 0; i < 240; i++) {
+        const x = R(0, BW), y = R(0, BH), r = R(10, 34), dk = Math.random() < 0.5;
+        for (const ox of [-BW, 0, BW]) {
+          const gr = g.createRadialGradient(x + ox, y, 0, x + ox, y, r);
+          gr.addColorStop(0, dk ? 'rgba(0,0,0,0.022)' : 'rgba(255,255,255,0.03)');
+          gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(x + ox, y, r, 0, 7); g.fill();
+        }
+      }
+    },
+    // glaze: a soft sheen across the middle plus a scatter of kiln specks
+    ceramic: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      const gr = g.createLinearGradient(0, 0, 0, BH);
+      gr.addColorStop(0, 'rgba(255,255,255,0.42)'); gr.addColorStop(0.45, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.12)');
+      g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+      for (let i = 0; i < 420; i++) {
+        g.fillStyle = `rgba(60,50,40,${R(0.04, 0.14).toFixed(3)})`;
+        g.beginPath(); g.arc(R(0, BW), R(0, BH), R(1.4, 3.0), 0, 7); g.fill();
+      }
+    },
+    // machined metal: long soft streaks, nothing sharper than a couple of pixels
+    brushed: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      for (let i = 0; i < 420; i++) {
+        const y = R(0, BH), h = R(1.2, 2.6);
+        g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${R(0.02, 0.08).toFixed(3)})` : `rgba(255,255,255,${R(0.03, 0.10).toFixed(3)})`;
+        g.fillRect(-40, y, BW + 80, h);
+      }
+      const gr = g.createLinearGradient(0, 0, 0, BH);
+      gr.addColorStop(0, 'rgba(255,255,255,0.16)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.06)'); gr.addColorStop(1, 'rgba(255,255,255,0.12)');
+      g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+    },
+    // corrugated flutes plus a coarse paper fibre
+    card: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      const FL = 32;
+      for (let x = 0; x < BW; x += FL) {
+        const gr = g.createLinearGradient(x, 0, x + FL, 0);
+        gr.addColorStop(0, 'rgba(0,0,0,0.13)'); gr.addColorStop(0.42, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0.13)');
+        g.fillStyle = gr; g.fillRect(x, 0, FL, BH);
+      }
+      for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(90,65,40,${R(0.03, 0.10).toFixed(3)})`; g.fillRect(R(0, BW), R(0, BH), R(4, 14), 2); }
+    },
+    // a plain over-under weave, big enough not to shimmer
+    cloth: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      const S2 = 16;
+      for (let y = 0; y < BH; y += S2) for (let x = 0; x < BW; x += S2) {
+        const up = ((x / S2 + y / S2) & 1) === 0;
+        const gr = g.createLinearGradient(x, y, up ? x + S2 : x, up ? y : y + S2);
+        gr.addColorStop(0, 'rgba(0,0,0,0.13)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0.13)');
+        g.fillStyle = gr; g.fillRect(x, y, S2, S2);
+      }
+    },
+    // overlapping strands, dark at the root and pale at the tip
+    fur: (g) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
+      for (let i = 0; i < 1500; i++) {
+        const x = R(0, BW), y = R(-10, BH), len = R(9, 22), lean = R(-6, 6);
+        g.strokeStyle = Math.random() < 0.55
+          ? `rgba(45,32,20,${R(0.05, 0.17).toFixed(3)})`
+          : `rgba(255,240,215,${R(0.05, 0.16).toFixed(3)})`;
+        g.lineWidth = R(1.4, 3.0); g.lineCap = 'round';
+        for (const oy of [-BH, 0, BH]) {
+          g.beginPath(); g.moveTo(x, y + oy); g.quadraticCurveTo(x + lean * 0.5, y + oy + len * 0.6, x + lean, y + oy + len); g.stroke();
+        }
+      }
+    },
+  };
+  const SURFORDER = Object.keys(PAINTERS);
+  const SURFN = SURFORDER.length;
+  const GUT = 16;                       // mirrored gutter so mip levels stay in-band
+  const CELL = BH + GUT * 2;
+  const SURF = {};
+  SURFORDER.forEach((k, i) => {
+    const top = i * CELL + GUT, H = CELL * SURFN;
+    SURF[k] = [(top + 0.5) / H, (top + BH - 0.5) / H];
+  });
+
+  // one standalone tiling texture per surface — its own mesh, its own map
+  const _bandTex = new Map();
+  function surfTex(name) {
+    if (_bandTex.has(name)) return _bandTex.get(name);
+    const c = document.createElement('canvas'); c.width = BW; c.height = BH;
+    (PAINTERS[name] || PAINTERS.blank)(c.getContext('2d'));
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    _bandTex.set(name, t); return t;
+  }
+  // the stacked atlas, for parts that share one merged geometry
+  let _surf = null;
+  function surfaceTexture() {
+    if (_surf) return _surf;
+    const c = document.createElement('canvas');
+    c.width = BW; c.height = CELL * SURFN;
+    const g = c.getContext('2d');
+    SURFORDER.forEach((k, i) => {
+      const src = surfTex(k).image, top = i * CELL + GUT;
+      g.drawImage(src, 0, top);
+      // mirror a strip above and below so mipmaps blur the band into itself
+      g.save(); g.translate(0, top); g.scale(1, -1); g.drawImage(src, 0, 0, BW, GUT, 0, 0, BW, -GUT); g.restore();
+      g.save(); g.translate(0, top + BH); g.scale(1, -1); g.drawImage(src, 0, BH - GUT, BW, GUT, 0, 0, BW, GUT); g.restore();
+    });
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    return (_surf = t);
+  }
+  function surfMat(color, name, repU = 1, repV = 1, opts = {}) {
+    const t = surfTex(name).clone(); t.needsUpdate = true;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repU, repV);
+    return new THREE.MeshStandardMaterial(Object.assign(
+      { color, map: t, roughness: 0.9, metalness: 0, envMapIntensity: 0.75 }, opts));
+  }
 
   function noiseCanvas(S, base, spots, alpha) {
     const c = document.createElement('canvas'); c.width = c.height = S;
@@ -307,19 +463,48 @@ FW.Pixel = (() => {
     for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(120,118,112,${0.1 + Math.random() * 0.25})`; g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 1 + Math.random() * 2.6, 0, 7); g.fill(); }
     return c;
   }, 1, 1);
-  // fine grain that multiplies the terrain's vertex colours, so ground reads as
-  // a real surface instead of flat polygons
+  // Detail that multiplies the terrain's vertex colours. Built at three scales
+  // — broad damp/dry blotches, scattered pebbles, then a light grain — because
+  // a single layer of per-pixel noise just reads as television static once the
+  // camera is more than a couple of metres away.
   const groundDetail = () => repeatTex('grain', () => {
-    const S = 512, { c, g } = noiseCanvas(S, '#ffffff', 26000, 0.34);
-    for (let i = 0; i < 900; i++) {
-      g.fillStyle = `rgba(${120 + Math.random() * 80 | 0},${120 + Math.random() * 80 | 0},${110 + Math.random() * 70 | 0},${0.05 + Math.random() * 0.2})`;
-      g.beginPath(); g.ellipse(Math.random() * S, Math.random() * S, 2 + Math.random() * 9, 1 + Math.random() * 5, Math.random() * 3, 0, 7); g.fill();
+    const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    const R = (a, b) => a + Math.random() * (b - a);
+    const wrap = (fn) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) fn(ox, oy); };
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
+    // metre-scale patches: where the ground is damper, worn or shaded
+    for (let i = 0; i < 46; i++) {
+      const x = R(0, S), y = R(0, S), r = R(40, 150), dk = Math.random() < 0.62;
+      wrap((ox, oy) => {
+        const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+        gr.addColorStop(0, dk ? 'rgba(70,66,58,0.09)' : 'rgba(255,252,240,0.09)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(x + ox, y + oy, r, 0, 7); g.fill();
+      });
     }
-    for (let i = 0; i < 40; i++) {
-      g.strokeStyle = `rgba(90,88,84,${0.05 + Math.random() * 0.12})`; g.lineWidth = 1 + Math.random() * 2;
-      g.beginPath(); let x = Math.random() * S, y = Math.random() * S; g.moveTo(x, y);
-      for (let k = 0; k < 6; k++) { x += (Math.random() - 0.5) * 90; y += (Math.random() - 0.5) * 90; g.lineTo(x, y); }
+    // pebbles and grit, each with a lit top and a shaded underside
+    for (let i = 0; i < 900; i++) {
+      const x = R(0, S), y = R(0, S), r = R(1.6, 6), a = R(0, 3);
+      const sh = 40 + Math.random() * 60 | 0;
+      wrap((ox, oy) => {
+        g.fillStyle = `rgba(${sh},${sh - 4},${sh - 10},${R(0.06, 0.2).toFixed(3)})`;
+        g.beginPath(); g.ellipse(x + ox, y + oy + r * 0.35, r, r * 0.72, a, 0, 7); g.fill();
+        g.fillStyle = `rgba(255,250,238,${R(0.06, 0.18).toFixed(3)})`;
+        g.beginPath(); g.ellipse(x + ox, y + oy - r * 0.2, r * 0.8, r * 0.55, a, 0, 7); g.fill();
+      });
+    }
+    // dry cracks and old tyre scuffs
+    for (let i = 0; i < 26; i++) {
+      g.strokeStyle = `rgba(86,82,76,${R(0.04, 0.11).toFixed(3)})`; g.lineWidth = R(1, 2.6);
+      let x = R(0, S), y = R(0, S); g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 6; k++) { x += R(-90, 90); y += R(-90, 90); g.lineTo(x, y); }
       g.stroke();
+    }
+    // a whisper of grain on top, far quieter than it used to be
+    for (let i = 0; i < 9000; i++) {
+      g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${R(0.01, 0.05).toFixed(3)})` : `rgba(255,255,255,${R(0.01, 0.05).toFixed(3)})`;
+      g.fillRect(R(0, S), R(0, S), 1.6, 1.6);
     }
     return c;
   });
@@ -381,8 +566,20 @@ FW.Pixel = (() => {
     g.clearRect(0, 0, S, S);
     const ink = '#221b18';
     const EY = 96, EX = 62, R = 21;
-    const dot = (x, y, r, sq = 1) => { g.fillStyle = ink; g.beginPath(); g.ellipse(x, y, r, r * sq, 0, 0, 7); g.fill(); };
-    const arc = (x, y, r, up) => { g.strokeStyle = ink; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath(); g.arc(x, y + (up ? r * 0.6 : -r * 0.6), r, up ? Math.PI : 0, up ? 0 : Math.PI); g.stroke(); };
+    // wombats have pale patches around the eyes, and they double as the
+    // contrast that makes dark ink dots readable against dark fur
+    const patch = (x, y, r) => {
+      const gr = g.createRadialGradient(x, y - 2, r * 0.2, x, y, r * 1.5);
+      gr.addColorStop(0, 'rgba(247,240,226,0.95)'); gr.addColorStop(0.6, 'rgba(240,230,212,0.7)'); gr.addColorStop(1, 'rgba(240,230,212,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.5, r * 1.35, 0, 0, 7); g.fill();
+    };
+    const dot = (x, y, r, sq = 1) => {
+      patch(x, y, r * 1.35);
+      g.fillStyle = ink; g.beginPath(); g.ellipse(x, y, r, r * sq, 0, 0, 7); g.fill();
+      // catchlight
+      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.ellipse(x + r * 0.34, y - r * sq * 0.36, r * 0.28, r * 0.28, 0, 0, 7); g.fill();
+    };
+    const arc = (x, y, r, up) => { patch(x, y, r * 1.5); g.strokeStyle = ink; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath(); g.arc(x, y + (up ? r * 0.6 : -r * 0.6), r, up ? Math.PI : 0, up ? 0 : Math.PI); g.stroke(); };
     const brow = (x, y, a) => { g.strokeStyle = ink; g.lineWidth = 10; g.lineCap = 'round'; g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(-22, 0); g.lineTo(22, 0); g.stroke(); g.restore(); };
     const mouth = (kind) => {
       g.strokeStyle = ink; g.lineWidth = 11; g.lineCap = 'round'; g.fillStyle = ink;
@@ -451,6 +648,12 @@ FW.Pixel = (() => {
     if (g.roundRect) { g.beginPath(); g.roundRect(0, 0, w, h, radius); g.fill(); } else g.fillRect(0, 0, w, h);
     if (border) { g.strokeStyle = border; g.lineWidth = 7; if (g.roundRect) { g.beginPath(); g.roundRect(3.5, 3.5, w - 7, h - 7, radius); g.stroke(); } else g.strokeRect(3.5, 3.5, w - 7, h - 7); }
     g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    // shrink to fit rather than running off the edge of the sign
+    const pad = 18, room = w - pad * 2;
+    let size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] || '40');
+    while (size > 8 && g.measureText(text).width > room) {
+      size -= 2; g.font = font.replace(/(\d+(?:\.\d+)?)px/, size + 'px');
+    }
     g.fillText(text, w / 2, h / 2 + 2);
     const t = new THREE.CanvasTexture(c);
     t.anisotropy = 4; t.colorSpace = THREE.SRGBColorSpace;
@@ -488,14 +691,14 @@ FW.Pixel = (() => {
   }
 
   return { init, render, size, fam, mat, vmat, flat, textTexture, stripeTexture, chevronTexture, spiralTexture,
-    foliageTexture, UVCELL, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
+    foliageTexture, UVCELL, surfaceTexture, surfTex, surfMat, SURF, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
     get renderer() { return renderer; }, get envOutdoor() { return envOutdoor; }, get envIndoor() { return envIndoor; } };
 })();
 
 // ---------- palette: "Sunday-morning plush" ----------
 FW.PAL = {
   duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#2a2320', blush: '#e8a08f', white: '#fffdf6',
-  fur: '#9a8368', furDark: '#7e6a53', furLight: '#b09a80', nose: '#3f3630', claw: '#e8e0d2',
+  fur: '#b39a7c', furDark: '#8f7a60', furLight: '#cdb99c', nose: '#4a3f36', claw: '#ece5d9',
   apron: '#e5564a', apronTrim: '#fff3dc', hatA: '#fff3dc', hatB: '#e5564a', hatC: '#f7c544', hatD: '#7fd1c0', prop: '#4fb3d9',
   candy: '#ff8fb0', stick: '#fff3dc',
   mint: '#7fd1c0', mintDark: '#5cb6a5', steel: '#c8ccd8', cream: '#fff3dc', red: '#e5564a', gold: '#f7c544', brown: '#8a5a2b', wood: '#b07c4a', wood2: '#96663a',

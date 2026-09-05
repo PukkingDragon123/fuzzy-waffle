@@ -685,8 +685,13 @@ FW.World = (() => {
         const q = sm[i];
         if (i) run += Math.hypot(q.x - sm[i - 1].x, q.z - sm[i - 1].z);
         const px = -q.tz, pz = q.tx;
-        const y = q.y + 0.035;
-        pos.push(q.x + px * half, y, q.z + pz * half, q.x - px * half, y, q.z - pz * half);
+        // Sit each edge on the terrain it actually crosses. Using the sample's
+        // own y put the ribbon under the ground wherever the two disagreed,
+        // which is why the roads were showing as bare grey terrain.
+        const lx = q.x + px * half, lz = q.z + pz * half;
+        const rx = q.x - px * half, rz = q.z - pz * half;
+        const LIFT = 0.05;
+        pos.push(lx, terrainHeight(lx, lz) + LIFT, lz, rx, terrainHeight(rx, rz) + LIFT, rz);
         const v = run / (dirt ? 6 : 9);
         uvs.push(0, v, 1, v);
         nor.push(0, 1, 0, 0, 1, 0);
@@ -837,8 +842,11 @@ FW.World = (() => {
     const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 10; sc.far = 300;
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3.2;
     scene.add(sun, sun.target);
-    fill = new THREE.DirectionalLight('#9fb8d4', 0.3); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
-    hemi = new THREE.HemisphereLight(0xb6cfe4, 0x6a6650, 0.5); scene.add(hemi);
+    // The valley is meant to read as a dark forest, not an unlit one: anything
+    // the sun does not reach was falling to near-black and you could not see
+    // the road. Lift the sky bounce and the fill so shade stays legible.
+    fill = new THREE.DirectionalLight('#9fb8d4', 0.55); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
+    hemi = new THREE.HemisphereLight(0xc6dcef, 0x7d7862, 1.0); scene.add(hemi);
     scene.fog = new THREE.FogExp2(0xcbd3d4, 0.0042);
     scene.environment = FW.Pixel.envOutdoor;
     for (let i = 0; i < 14; i++) {

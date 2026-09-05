@@ -47,7 +47,7 @@ FW.Models = (() => {
   function blob(r, detail = 1) { const k = key('b', r, detail); if (geoCache.has(k)) return geoCache.get(k); const g = new THREE.IcosahedronGeometry(r, detail); geoCache.set(k, g); return g; }
 
   // part descriptor
-  function p(geo, color, x = 0, y = 0, z = 0, o = {}) { return { geo, color, x, y, z, rx: o.rx || 0, ry: o.ry || 0, rz: o.rz || 0, sx: o.sx ?? o.s ?? 1, sy: o.sy ?? o.s ?? 1, sz: o.sz ?? o.s ?? 1, mat: o.mat || 'matte', uv: o.uv || null }; }
+  function p(geo, color, x = 0, y = 0, z = 0, o = {}) { return { geo, color, x, y, z, rx: o.rx || 0, ry: o.ry || 0, rz: o.rz || 0, sx: o.sx ?? o.s ?? 1, sy: o.sy ?? o.s ?? 1, sz: o.sz ?? o.s ?? 1, mat: o.mat || 'matte', uv: o.uv || null, tex: o.tex || null, rep: o.rep || 1, repV: o.repV || 1 }; }
   // flat card used for every leaf, needle spray and grass tuft
   const quadCache = new Map();
   function quad(w, h) { const k = w + 'x' + h; if (quadCache.has(k)) return quadCache.get(k); const g = new THREE.PlaneGeometry(w, h); quadCache.set(k, g); return g; }
@@ -72,6 +72,10 @@ FW.Models = (() => {
         col.set(q.color);
         const cell = q.uv ? FW.Pixel.UVCELL[q.uv] : null;
         const solid = q.uv === 'solid' || (!q.uv && m === 'leafy');
+        // non-leafy parts read from the surface strip: U tiles freely, V is
+        // squeezed into this material's band. No tex means the blank band, so
+        // the part looks exactly as it did before the atlas existed.
+        const band = m !== 'leafy' ? (FW.Pixel.SURF[q.tex] || FW.Pixel.SURF.blank) : null;
         for (let i = 0; i < gp.count; i++) {
           v.fromBufferAttribute(gp, i).applyMatrix4(M);
           n.fromBufferAttribute(gn, i).applyMatrix3(NM).normalize();
@@ -84,6 +88,10 @@ FW.Models = (() => {
           } else if (solid) {
             const sc = FW.Pixel.UVCELL.solid;
             uvs[k2] = (sc[0] + sc[2]) / 2; uvs[k2 + 1] = (sc[1] + sc[3]) / 2;
+          } else if (band) {
+            const u = gu ? gu.getX(i) : 0, vv = gu ? gu.getY(i) : 0;
+            uvs[k2] = u * q.rep;
+            uvs[k2 + 1] = band[0] + Math.min(1, vv * q.repV) * (band[1] - band[0]);
           } else if (gu) { uvs[k2] = gu.getX(i); uvs[k2 + 1] = gu.getY(i); }
           k += 3; k2 += 2;
         }
@@ -110,6 +118,13 @@ FW.Models = (() => {
   function geoOf(parts, mat = 'matte') {
     const merged = mergeParts(parts.map((q) => Object.assign({}, q, { mat })));
     return merged[0].geo;
+  }
+
+  // Tag parts by their colour so they read from a band of the surface atlas.
+  // Cheaper than authoring UVs per part and it keeps everything merged.
+  function texBy(parts, table, rep = 3) {
+    for (const q of parts) { const t = table[q.color]; if (t) { q.tex = t; q.rep = rep; } }
+    return parts;
   }
 
   // ---------- the hero: a heavy, chunky wombat ----------
@@ -145,7 +160,8 @@ FW.Models = (() => {
       parts.push(p(sphere(0.135, 12, 8), FD, sx * 0.19, 0.06, fz + (sit ? 0.08 : 0.06), { sy: 0.55, sz: 1.3, mat: 'soft' }));
       for (let i = -1; i <= 1; i++) parts.push(p(sphere(0.024, 6, 5), P.claw, sx * 0.19 + i * 0.048, 0.05, fz + (sit ? 0.19 : 0.17), { sz: 1.5 }));
     }
-    bodyG.add(build(parts));
+    const HTEX = { [F]: 'fur', [FD]: 'fur', [FL]: 'fur', [P.apron]: 'cloth', [P.apronTrim]: 'cloth' };
+    bodyG.add(build(texBy(parts, HTEX, 4)));
     g.add(bodyG);
 
     // head: broad, sitting low on the shoulders
@@ -161,7 +177,7 @@ FW.Models = (() => {
       hp.push(p(sphere(0.085, 12, 9), F, sx * 0.2, 0.19, -0.04, { sz: 0.5, mat: 'soft' }));
       hp.push(p(sphere(0.055, 8, 6), P.blush, sx * 0.208, 0.19, -0.015, { sz: 0.32, mat: 'soft' }));
     }
-    head.add(build(hp));
+    head.add(build(texBy(hp, HTEX, 3)));
     // 2D face card: eyes and mouth, swapped for expressions
     const faceMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.faceTexture('neutral'), transparent: true, alphaTest: 0.35, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 1.95, HR * 1.95), faceMat);
@@ -174,7 +190,7 @@ FW.Models = (() => {
     for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.215, 10, 7, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, sx: 1.06, sz: 1.02, mat: 'soft' }));
     hpr.push(p(torus(0.222, 0.026, 6, 22), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2, sx: 1.04, sy: 1.0 }));
     hpr.push(p(cyl(0.019, 0.025, 0.085, 8), '#b9bfc9', 0, 0.16, 0, { mat: 'metal' }));
-    hat.add(build(hpr));
+    hat.add(build(texBy(hpr, { [P.hatA]: 'cloth', [P.hatB]: 'cloth', [P.hatC]: 'cloth', [P.hatD]: 'cloth' }, 3)));
     head.add(hat);
     const prop = new THREE.Group(); prop.position.set(0, 0.345, -0.03);
     const pp = [p(sphere(0.034, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
@@ -187,11 +203,11 @@ FW.Models = (() => {
     const arms = [];
     for (const sx of [-1, 1]) {
       const a = new THREE.Group(); a.position.set(sx * 0.36, 0.66, 0.04);
-      a.add(build([
+      a.add(build(texBy([
         p(capsule(0.105, 0.19), F, sx * 0.1, -0.03, 0, { rz: sx * 1.2, mat: 'soft' }),
         p(sphere(0.115, 12, 9), FD, sx * 0.24, -0.07, 0.02, { mat: 'soft' }),
         ...[-1, 0, 1].map((i) => p(sphere(0.025, 6, 5), P.claw, sx * 0.31, -0.07 + i * 0.048, 0.07, { sz: 1.4 })),
-      ]));
+      ], HTEX, 4)));
       g.add(a); arms.push(a);
     }
     let expr = 'neutral', blinkT = 2 + Math.random() * 3;
@@ -235,7 +251,7 @@ FW.Models = (() => {
       p(capsule(0.022, 0.24), S, -0.16, 0.28, 0.52, { rx: 0.28, mat: 'metal' }),
       p(capsule(0.022, 0.24), S, 0.16, 0.28, 0.52, { rx: 0.28, mat: 'metal' }),
     ];
-    g.add(build(parts));
+    g.add(build(texBy(parts, { [M]: 'paint', [MD]: 'paint', [S]: 'brushed', [P.brown]: 'cloth', '#a06a3c': 'cloth' }, 3)));
     // wheels
     const wheels = [];
     for (const z of [-0.62, 0.62]) {
@@ -520,7 +536,7 @@ FW.Models = (() => {
       parts.push(p(torus(0.3, 0.12, 7, 12), '#2b2b30', sx * (c.w / 2 - 0.06), 0.42, z, { ry: Math.PI / 2, mat: 'soft' }));
       parts.push(p(cyl(0.17, 0.17, 0.1, 10), '#c8ccd8', sx * (c.w / 2 - 0.04), 0.42, z, { rz: Math.PI / 2, mat: 'metal' }));
     }
-    g.add(build(parts));
+    g.add(build(texBy(parts, { [c.body]: 'paint', [c.roof]: 'paint', '#8d949f': 'brushed', '#c8ccd8': 'brushed' }, 4)));
     g.userData = { kind, len: c.l, wid: c.w, radius: Math.max(c.w, c.l * 0.42) * 0.5 + 0.35 };
     return g;
   }
@@ -570,13 +586,30 @@ FW.Models = (() => {
   }
 
   // ---------- buildings ----------
+  // A barrel vault built from slats laid tangent to the arc. They overlap, so
+  // it reads as a continuous roof rather than the row of floating poles this
+  // used to produce — you could see straight through every building.
   function barrelRoof(w, d, h, c1, c2, y) {
     const parts = [];
-    const n = 7;
+    const n = 15;
+    const rw = w / 2, over = 0.35;                 // eave overhang
+    const at = (t) => { const a = t * Math.PI; return { x: -Math.cos(a) * rw, y: Math.sin(a) * h, a }; };
     for (let i = 0; i < n; i++) {
-      const t = i / (n - 1), a = t * Math.PI;
-      const x = -Math.cos(a) * w / 2, hy = Math.sin(a) * h;
-      parts.push(p(capsule(0.22, d - 0.44), i % 2 ? c2 : c1, x, y + hy, 0, { rx: Math.PI / 2, mat: 'soft' }));
+      const t = (i + 0.5) / n, cur = at(t);
+      const prev = at(i / n), next = at((i + 1) / n);
+      const dx = next.x - prev.x, dy = next.y - prev.y;
+      const len = Math.hypot(dx, dy) * 1.5;        // overlap the neighbours
+      const tilt = Math.atan2(dy, dx);
+      parts.push(p(roundedBox(len, 0.16, d + over * 2, 0.06), i % 2 ? c2 : c1,
+        cur.x, y + cur.y, 0, { rz: tilt, mat: 'soft', tex: 'wood', rep: Math.max(2, Math.round(d / 1.6)) }));
+    }
+    // ridge cap, plus a fascia board following the arc down each end
+    parts.push(p(capsule(0.16, d + over * 1.6), c1, 0, y + h + 0.06, 0, { rx: Math.PI / 2, mat: 'soft' }));
+    for (const sz of [-1, 1]) for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n, cur = at(t), prev = at(i / n), next = at((i + 1) / n);
+      const len = Math.hypot(next.x - prev.x, next.y - prev.y) * 1.5;
+      parts.push(p(roundedBox(len, 0.2, 0.09, 0.04), c2, cur.x, y + cur.y - 0.04,
+        sz * (d / 2 + over), { rz: Math.atan2(next.y - prev.y, next.x - prev.x), mat: 'soft' }));
     }
     return parts;
   }
@@ -606,13 +639,13 @@ FW.Models = (() => {
     ];
     for (const bx of [-2.6, 2.6]) for (let i = 0; i < 3; i++) { const cs = ['#ffb3b3', '#fff6a8', '#c9a0f0']; parts.push(p(sphere(0.16, 8, 6), cs[i], bx - 0.45 + i * 0.45, 1.62, 3.05, { sy: 0.7, mat: 'soft' })); }
     parts.push(...barrelRoof(8.2, 6.6, 1.7, P.red, '#c9463c', 3.6));
-    g.add(build(parts));
+    g.add(build(texBy(parts, { [C]: 'paint', [P.brown]: 'wood', [P.wood]: 'wood', [P.wood2]: 'wood', [P.red]: 'paint', '#c9463c': 'paint', '#3d2c1e': 'wood' }, 5)));
     // giant waffle sign on the roof
-    const w = waffle(1.5); w.position.set(-1.5, 5.6, 0.4); w.rotation.set(-0.42, 0.35, 0.16); g.add(w);
-    const berry = new THREE.Mesh(sphere(0.2, 10, 8), FW.Pixel.mat('#e8434d', { roughness: 0.5 })); berry.position.set(-1.4, 5.95, 0.6); berry.castShadow = true; g.add(berry);
+    const w = waffle(1.5); w.position.set(-1.5, 6.15, 0.5); w.rotation.set(-1.32, 0.28, 0.12); g.add(w);
+    const berry = new THREE.Mesh(sphere(0.2, 10, 8), FW.Pixel.mat('#e8434d', { roughness: 0.5 })); berry.position.set(-1.34, 6.35, 0.72); berry.castShadow = true; g.add(berry);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.0), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture("FLIPPIN' WAFFLES", { w: 512, h: 112, font: 'bold 58px monospace', fg: '#8a4b1a', bg: '#fff3dc', border: '#e5564a', radius: 24 }), transparent: true }));
     sign.position.set(0, 3.35, 2.98); g.add(sign);
-    const s2 = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture('DELIVERY BY DUCK', { w: 384, h: 80, font: 'bold 36px monospace', fg: '#fff3dc', bg: '#e5564a', border: '#8a4b1a', radius: 18 }), transparent: true }));
+    const s2 = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture('DELIVERY BY WOMBAT', { w: 384, h: 80, font: 'bold 36px monospace', fg: '#fff3dc', bg: '#e5564a', border: '#8a4b1a', radius: 18 }), transparent: true }));
     s2.position.set(2.0, 4.6, 1.4); s2.rotation.set(-0.3, -0.4, 0.1); g.add(s2);
     g.userData.chimney = new THREE.Vector3(2.2, 6.1, -1.2);
     return g;
@@ -629,7 +662,7 @@ FW.Models = (() => {
     parts.push(p(torus(0.48, 0.09, 6, 14), P.cream, 1.6, 1.6, 2.04));
     parts.push(p(cyl(0.3, 0.34, 1.8, 8), P.granite[0], 1.6, 4.0, -1.0));
     parts.push(...barrelRoof(6.0, 5.0, 1.4, roof, roof === '#4f7d4a' ? '#3e6a3a' : '#7a4c30', 3.3));
-    const g = new THREE.Group(); g.add(build(parts));
+    const g = new THREE.Group(); g.add(build(texBy(parts, { [P.wood]: 'wood', [P.wood2]: 'wood', [P.brown]: 'wood', [roof]: 'paint', [P.cream]: 'paint' }, 5)));
     g.userData.chimney = new THREE.Vector3(1.6, 5.0, -1.0);
     return g;
   }
@@ -649,7 +682,7 @@ FW.Models = (() => {
       p(sphere(0.12, 8, 6), P.gold, 4.6, 5.5, 1.6, { mat: 'metal' }),
     ];
     parts.push(...barrelRoof(7.4, 5.6, 1.5, '#8a5a3c', '#7a4c30', 3.0));
-    const g = new THREE.Group(); g.add(build(parts));
+    const g = new THREE.Group(); g.add(build(texBy(parts, { [G]: 'paint', [W]: 'paint', [P.wood]: 'wood', '#8a5a3c': 'wood', '#7a4c30': 'wood' }, 5)));
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.72), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture('RANGER STATION', { w: 512, h: 108, font: 'bold 52px monospace', fg: '#fff3dc', bg: '#4f7d4a', border: '#2f5a34', radius: 22 }), transparent: true }));
     sign.position.set(0, 2.75, 2.48); g.add(sign);
     return g;
@@ -661,7 +694,7 @@ FW.Models = (() => {
     parts.push(p(sphere(0.5, 10, 8), '#3d2c1e', 0, 0.5, 1.75, { sz: 0.4, sy: 1.1 }));
     parts.push(p(capsule(0.06, 2.2), P.wood, 0, 2.15, 0, { rx: Math.PI / 2 }));
     parts.push(p(sphere(0.12, 8, 6), P.gold, 0, 2.3, 1.3, { mat: 'glow' }));
-    return build(parts);
+    return build(texBy(parts, { [color]: 'cloth', [shade(color, 0.86)]: 'cloth' }, 4));
   }
   function shade(hex, f) { const c = new THREE.Color(hex); c.multiplyScalar(f); return '#' + c.getHexString(); }
   function campfire() {
