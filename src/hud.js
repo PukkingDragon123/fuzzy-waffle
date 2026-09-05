@@ -4,7 +4,7 @@ window.FW = window.FW || {};
 FW.HUD = (() => {
   const $ = (id) => document.getElementById(id);
   const el = {};
-  ['ticket', 'stats', 'compass', 'timer', 'meter', 'waffles', 'drift', 'tooltip', 'popups', 'hint', 'panel', 'title', 'fade', 'minimap'].forEach((k) => (el[k] = $(k)));
+  ['ticket', 'stats', 'compass', 'timer', 'meter', 'waffles', 'drift', 'tooltip', 'popups', 'hint', 'panel', 'title', 'fade', 'minimap', 'mess', 'touch'].forEach((k) => (el[k] = $(k)));
   const show = (k, v = true) => el[k].classList.toggle('hidden', !v);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const stars = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
@@ -168,6 +168,38 @@ FW.HUD = (() => {
     el.compass.querySelector('.dist').textContent = o.dist >= 1000 ? (o.dist / 1000).toFixed(1) + ' km' : Math.round(o.dist) + ' m';
     el.compass.querySelector('.eta').textContent = o.eta;
   }
-  function hideAll() { ['ticket', 'compass', 'timer', 'meter', 'waffles', 'drift', 'tooltip', 'hint', 'panel', 'title', 'minimap'].forEach((k) => show(k, false)); }
-  return { el, show, esc, stars, ticket, stats, compass, nav, timer, meter, waffles, drift, tooltip, popup, hint, panel, closePanel, title, fade, hideAll, minimapInit, minimap };
+  function mess(n) {
+    show('mess', n > 0);
+    if (n > 0) { el.mess.querySelector('.n').textContent = n; el.mess.classList.toggle('lots', n >= 6); }
+  }
+  // --- on-screen wheel and pedals, for touch ---
+  let touchReady = false;
+  function touchControls(v) {
+    show('touch', v);
+    if (touchReady || !v) return;
+    touchReady = true;
+    const I = FW.Input, wheel = document.getElementById('wheel'), rim = wheel.querySelector('.rim');
+    let dragId = null, startX = 0, angle = 0;
+    const setAngle = (a) => { angle = Math.max(-1, Math.min(1, a)); rim.style.transform = `rotate(${angle * 42}deg)`; I.virtual.steer = angle; };
+    wheel.addEventListener('pointerdown', (e) => { dragId = e.pointerId; startX = e.clientX - angle * 120; wheel.setPointerCapture(e.pointerId); e.preventDefault(); });
+    wheel.addEventListener('pointermove', (e) => { if (e.pointerId !== dragId) return; setAngle((e.clientX - startX) / 120); });
+    const release = (e) => { if (e.pointerId !== dragId) return; dragId = null; setAngle(0); };
+    wheel.addEventListener('pointerup', release);
+    wheel.addEventListener('pointercancel', release);
+    for (const b of document.querySelectorAll('#pedals .pedal, #tbtns .tbtn')) {
+      const act = b.dataset.act;
+      const on = (e) => { e.preventDefault(); b.classList.add('on');
+        if (act === 'up') I.virtual.throttle = 1; else if (act === 'down') I.virtual.throttle = -1; else I.setHeld(act, true); };
+      const off = (e) => { e.preventDefault(); b.classList.remove('on');
+        if (act === 'up' || act === 'down') I.virtual.throttle = 0; else I.setHeld(act, false); };
+      b.addEventListener('pointerdown', on);
+      b.addEventListener('pointerup', off);
+      b.addEventListener('pointercancel', off);
+      b.addEventListener('pointerleave', off);
+    }
+  }
+  const isTouch = () => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+
+  function hideAll() { ['ticket', 'compass', 'timer', 'meter', 'waffles', 'drift', 'tooltip', 'hint', 'panel', 'title', 'minimap', 'mess', 'touch'].forEach((k) => show(k, false)); }
+  return { el, show, esc, stars, ticket, stats, compass, nav, timer, meter, waffles, drift, tooltip, popup, hint, panel, closePanel, title, fade, hideAll, minimapInit, minimap, mess, touchControls, isTouch };
 })();

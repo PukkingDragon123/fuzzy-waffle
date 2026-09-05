@@ -9,7 +9,7 @@ FW.Pixel = (() => {
   let pmrem = null, envOutdoor = null, envIndoor = null;
   const size = { W: 320, H: 180, aspect: 16 / 9, scale: 3, w: 1280, h: 720 };
   const PIXEL = 3.4;           // on-screen size of one rendered pixel
-  const MAXH = 320;            // never render taller than this internally
+  const MAXH = 640;            // never render taller than this internally
 
   // ---------- shaders ----------
   const VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -67,7 +67,7 @@ FW.Pixel = (() => {
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.4 }, levels: { value: 24.0 }, vignette: { value: 0.2 }, warm: { value: 1.0 }, sat: { value: 1.22 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.34 }, levels: { value: 52.0 }, vignette: { value: 0.16 }, warm: { value: 1.0 }, sat: { value: 1.22 } } });
     brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.82 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
@@ -111,8 +111,8 @@ FW.Pixel = (() => {
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     size.w = w; size.h = h;
-    // one rendered pixel is ~PIXEL screen pixels, targeting a fixed vertical resolution
-    size.scale = Math.max(2, Math.min(6, Math.round(h / 240)));
+    // a light pixel filter: render near half resolution, not a chunky mosaic
+    size.scale = Math.max(1, Math.min(3, Math.round(h / 460)));
     size.H = Math.min(MAXH, Math.ceil(h / size.scale));
     size.scale = h / size.H;
     size.W = Math.ceil(w / size.scale);
@@ -168,6 +168,9 @@ FW.Pixel = (() => {
       case 'glass': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.08, metalness: 0.0, transparent: true, opacity: 0.55, envMapIntensity: 1.4 }); break;
       case 'shell': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.34, metalness: 0.02, side: THREE.DoubleSide, envMapIntensity: 1.0 }); break;
       case 'shellMatte': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide }); break;
+      // cut-out foliage: every leaf card and every trunk shares one atlas, so a
+      // whole forest chunk is a single draw call
+      case 'leafy': m = new THREE.MeshStandardMaterial({ ...base, map: foliageTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.94, metalness: 0, envMapIntensity: 0.5 }); break;
       default: m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.95, metalness: 0.0 });
     }
     return (cache[name] = m);
@@ -177,6 +180,168 @@ FW.Pixel = (() => {
   const flat = (color, opts = {}) => new THREE.MeshBasicMaterial(Object.assign({ color, toneMapped: false }, opts));
 
   // ---------- textures ----------
+  // One greyscale atlas drives all foliage. Cell (0,1) is solid, so trunks and
+  // twigs can share the material with the cut-out leaf cards.
+  let _foliage = null;
+  function foliageTexture() {
+    if (_foliage) return _foliage;
+    const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, S, S);
+    const H = S / 2;
+    // --- cell (0,0) top-left in UV terms is v 0.5-1: SOLID ---
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, H, H);
+    // --- cell (1,0) = conifer needle spray (u .5-1, v .5-1) ---
+    g.save(); g.translate(H, 0);
+    g.strokeStyle = '#ffffff'; g.lineCap = 'round';
+    for (let b = 0; b < 3; b++) {
+      const bx = 40 + b * 70, by = H - 8;
+      g.lineWidth = 7; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + (b - 1) * 12, 26); g.stroke();
+      for (let i = 0; i < 22; i++) {
+        const t = i / 21, y = by - t * (by - 30), x = bx + (b - 1) * 12 * t;
+        const len = 30 * (1 - t * 0.75) + 6;
+        g.lineWidth = 4.6 - t * 2;
+        for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + dir * len, y - len * 0.5); g.stroke(); }
+      }
+    }
+    g.restore();
+    // --- cell (0,1) = broadleaf cluster (u 0-.5, v 0-.5) ---
+    g.save(); g.translate(0, H);
+    g.fillStyle = '#ffffff';
+    const leaf = (x, y, r, a) => { g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.ellipse(0, 0, r, r * 0.62, 0, 0, 7); g.fill(); g.restore(); };
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2 + (i % 3) * 0.4;
+      const rr = 34 + (i % 4) * 22;
+      leaf(H / 2 + Math.cos(a) * rr, H / 2 + Math.sin(a) * rr * 0.85, 26 - (i % 3) * 5, a);
+    }
+    leaf(H / 2, H / 2, 44, 0.3); leaf(H / 2 - 24, H / 2 + 16, 34, 1.1);
+    g.restore();
+    // --- cell (1,1) = grass tuft / fern frond (u .5-1, v 0-.5) ---
+    g.save(); g.translate(H, H);
+    g.strokeStyle = '#ffffff'; g.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      const x = 22 + i * 13, lean = (i % 5 - 2) * 16, h = 96 + (i % 4) * 46;
+      g.lineWidth = 8 - (i % 3) * 1.6;
+      g.beginPath(); g.moveTo(x, H - 6); g.quadraticCurveTo(x + lean * 0.5, H - h * 0.6, x + lean, H - h); g.stroke();
+    }
+    g.restore();
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+    _foliage = t; return t;
+  }
+  // UV rects into the atlas, inset so neighbouring cells never bleed in
+  const E = 0.014;
+  const UVCELL = { solid: [0.12, 0.62, 0.38, 0.88], needle: [0.5 + E, 0.5 + E, 1 - E, 1 - E], leaf: [E, E, 0.5 - E, 0.5 - E], grass: [0.5 + E, E, 1 - E, 0.5 - E] };
+
+  function noiseCanvas(S, base, spots, alpha) {
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = base; g.fillRect(0, 0, S, S);
+    for (let i = 0; i < spots; i++) {
+      g.fillStyle = `rgba(0,0,0,${(Math.random() * alpha).toFixed(3)})`;
+      g.fillRect(Math.random() * S, Math.random() * S, 1 + Math.random() * 3, 1 + Math.random() * 3);
+      g.fillStyle = `rgba(255,255,255,${(Math.random() * alpha * 0.8).toFixed(3)})`;
+      g.fillRect(Math.random() * S, Math.random() * S, 1 + Math.random() * 3, 1 + Math.random() * 3);
+    }
+    return { c, g };
+  }
+  const _tex = {};
+  function repeatTex(key, build, rx = 1, ry = 1) {
+    if (_tex[key]) return _tex[key];
+    const t = new THREE.CanvasTexture(build());
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    _tex[key] = t; return t;
+  }
+  // sawn floorboards
+  const woodTexture = (cols = ['#c08a55', '#b57f4c', '#c9945e', '#ab7645']) => repeatTex('wood' + cols[0], () => {
+    const S = 256, { c, g } = noiseCanvas(S, cols[0], 2600, 0.1);
+    for (let i = 0; i < 4; i++) {
+      const y = i * (S / 4);
+      g.fillStyle = cols[i % cols.length]; g.fillRect(0, y, S, S / 4 - 2);
+      g.fillStyle = 'rgba(70,40,20,.55)'; g.fillRect(0, y + S / 4 - 3, S, 3);
+      g.strokeStyle = 'rgba(90,55,28,.3)'; g.lineWidth = 1.4;
+      for (let k = 0; k < 7; k++) {
+        const yy = y + 6 + k * 7;
+        g.beginPath(); g.moveTo(0, yy);
+        for (let x = 0; x <= S; x += 16) g.lineTo(x, yy + Math.sin((x + i * 40 + k * 9) * 0.05) * 2.2);
+        g.stroke();
+      }
+      const off = (i % 2) * (S / 2);
+      g.fillStyle = 'rgba(60,34,16,.5)'; g.fillRect(off, y, 3, S / 4);
+    }
+    return c;
+  }, 4, 4);
+  // glazed backsplash tiles
+  const tileTexture = (a = '#f3ece0', b = '#dfd3c0', grout = '#b9ab97') => repeatTex('tile' + a, () => {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = grout; g.fillRect(0, 0, S, S);
+    const n = 4, k = S / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      g.fillStyle = (x + y) % 3 === 0 ? b : a;
+      g.fillRect(x * k + 3, y * k + 3, k - 6, k - 6);
+      const grd = g.createLinearGradient(x * k, y * k, x * k, y * k + k);
+      grd.addColorStop(0, 'rgba(255,255,255,.45)'); grd.addColorStop(0.4, 'rgba(255,255,255,0)');
+      g.fillStyle = grd; g.fillRect(x * k + 3, y * k + 3, k - 6, k - 6);
+    }
+    return c;
+  }, 6, 3);
+  // striped wallpaper with a small motif
+  const wallpaperTexture = () => repeatTex('wall', () => {
+    const S = 256, { c, g } = noiseCanvas(S, '#f6e6c8', 1400, 0.05);
+    g.fillStyle = 'rgba(214,178,126,.55)';
+    for (let x = 0; x < S; x += 32) g.fillRect(x, 0, 13, S);
+    g.fillStyle = 'rgba(191,136,86,.5)';
+    for (let y = 16; y < S; y += 64) for (let x = 16; x < S; x += 64) {
+      g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill();
+      g.beginPath(); g.arc(x + 32, y + 32, 3, 0, 7); g.fill();
+    }
+    return c;
+  }, 5, 3);
+  // poured concrete with aggregate
+  const concreteTexture = () => repeatTex('concrete', () => {
+    const S = 256, { c, g } = noiseCanvas(S, '#bdbab3', 6000, 0.16);
+    for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(120,118,112,${0.1 + Math.random() * 0.25})`; g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 1 + Math.random() * 2.6, 0, 7); g.fill(); }
+    return c;
+  }, 1, 1);
+  function signTexture(kind, text) {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    const weather = () => { for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${90 + Math.random() * 60|0},${80 + Math.random() * 50|0},${70 + Math.random() * 40|0},${Math.random() * 0.2})`; g.fillRect(Math.random() * S, Math.random() * S, 1 + Math.random() * 5, 1 + Math.random() * 5); } };
+    g.clearRect(0, 0, S, S);
+    if (kind === 'warn') {
+      g.save(); g.translate(S / 2, S / 2); g.rotate(Math.PI / 4);
+      g.fillStyle = '#e8b53a'; g.fillRect(-84, -84, 168, 168);
+      g.strokeStyle = '#2b2b2b'; g.lineWidth = 8; g.strokeRect(-76, -76, 152, 152); g.restore();
+      g.fillStyle = '#1e1e1e'; g.font = 'bold 92px "Roboto Condensed", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text || '!', S / 2, S / 2 + 4);
+    } else if (kind === 'speed') {
+      g.fillStyle = '#f0eee8'; g.fillRect(52, 26, 152, 204);
+      g.strokeStyle = '#22221f'; g.lineWidth = 7; g.strokeRect(60, 34, 136, 188);
+      g.fillStyle = '#22221f'; g.textAlign = 'center';
+      g.font = 'bold 34px "Roboto Condensed", Arial'; g.fillText('SPEED', S / 2, 84);
+      g.fillText('LIMIT', S / 2, 118);
+      g.font = 'bold 96px "Roboto Condensed", Arial'; g.fillText(text || '25', S / 2, 190);
+    } else if (kind === 'chevron') {
+      g.fillStyle = '#e8b53a'; g.fillRect(40, 20, 176, 216);
+      g.strokeStyle = '#2b2b2b'; g.lineWidth = 6; g.strokeRect(48, 28, 160, 200);
+      g.fillStyle = '#1e1e1e'; g.beginPath(); g.moveTo(96, 60); g.lineTo(176, 128); g.lineTo(96, 196); g.lineTo(96, 152); g.lineTo(126, 128); g.lineTo(96, 104); g.closePath(); g.fill();
+    } else { // guide
+      g.fillStyle = '#2c5c3a'; g.fillRect(14, 62, 228, 132);
+      g.strokeStyle = '#f0eee8'; g.lineWidth = 6; g.strokeRect(24, 72, 208, 112);
+      g.fillStyle = '#f0eee8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const t = (text || 'VALLEY').split('|');
+      g.font = 'bold 40px "Roboto Condensed", Arial';
+      t.forEach((line, i) => g.fillText(line, S / 2, 128 + (i - (t.length - 1) / 2) * 44));
+    }
+    weather();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    return tex;
+  }
+
   function textTexture(text, opts = {}) {
     const { w = 256, h = 64, bg = '#f7e7c6', fg = '#6b4423', font = 'bold 40px monospace', border = '#3d2314', radius = 10 } = opts;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -222,19 +387,21 @@ FW.Pixel = (() => {
   }
 
   return { init, render, size, fam, mat, vmat, flat, textTexture, stripeTexture, chevronTexture, spiralTexture,
+    foliageTexture, UVCELL, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas,
     get renderer() { return renderer; }, get envOutdoor() { return envOutdoor; }, get envIndoor() { return envIndoor; } };
 })();
 
 // ---------- palette: "Sunday-morning plush" ----------
 FW.PAL = {
-  duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#3b2a2a', blush: '#ffb3b3', white: '#fffdf6',
+  duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#2a2320', blush: '#e8a08f', white: '#fffdf6',
+  fur: '#9a8368', furDark: '#7e6a53', furLight: '#b09a80', nose: '#3f3630', claw: '#e8e0d2',
   apron: '#e5564a', apronTrim: '#fff3dc', hatA: '#fff3dc', hatB: '#e5564a', hatC: '#f7c544', hatD: '#7fd1c0', prop: '#4fb3d9',
   candy: '#ff8fb0', stick: '#fff3dc',
   mint: '#7fd1c0', mintDark: '#5cb6a5', steel: '#c8ccd8', cream: '#fff3dc', red: '#e5564a', gold: '#f7c544', brown: '#8a5a2b', wood: '#b07c4a', wood2: '#96663a',
   bear: '#7a5334', bearLight: '#9b7250', muzzle: '#d8b489', tan: '#c9a177',
   pine: ['#2f6b4a', '#3f8a57', '#256045', '#5fae6e'], trunk: '#7a5334', sequoia: '#9c5636', seqGreen: '#356f4d', aspen: '#b9d35a', aspenGold: '#e8b04b', aspenTrunk: '#efe9dc',
   granite: ['#b3aec2', '#c2bccd', '#a49eb4'], snow: '#f6f7fb',
-  grass: ['#6fb74e', '#75bc52', '#7cc257', '#6ab24d'], dirt: ['#c09161', '#b3855a', '#cb9c6b'], road: ['#736f80', '#6b6778', '#7c7889'], shoulder: '#cbbb94', line: '#f7d774', sand: '#e6d8ab', water: '#5cb3e8', riverbed: '#7e9a70',
+  grass: ['#6fb74e', '#75bc52', '#7cc257', '#6ab24d'], dirt: ['#c09161', '#b3855a', '#cb9c6b'], road: ['#9d9a94', '#a4a19b', '#96938d'], joint: '#7c7a75', shoulder: '#8d8981', line: '#d9d6cd', lineY: '#d8b23f', sand: '#e6d8ab', water: '#5cb3e8', riverbed: '#7e9a70',
   tent: ['#f0872a', '#3aa6a6', '#e5564a', '#8f6cd0', '#4f9a5c'],
   syrup: '#8a4b1a', butter: '#ffdf7e',
 };

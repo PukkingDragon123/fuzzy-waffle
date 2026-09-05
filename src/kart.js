@@ -33,8 +33,8 @@ FW.Kart = (() => {
       this.stun = 0; this.spinOut = 0; this.invuln = 0; this.honkCd = 0; this.rescueCd = 0; this.deepTimer = 0;
       this.controllable = true; this.surf = 1; this.events = [];
       this.visual = new THREE.Group(); this.tilt = new THREE.Group(); this.trickG = new THREE.Group(); this.susp = new THREE.Group();
-      this.scooter = FW.Models.scooter(); this.duck = FW.Models.duck({ sitting: true });
-      this.duck.position.set(0, 0.47, -0.38);
+      this.scooter = FW.Models.scooter(); this.duck = FW.Models.hero({ sitting: true });
+      this.duck.position.set(0, 0.44, -0.34);
       this.susp.add(this.scooter, this.duck);
       this.trickG.add(this.susp); this.tilt.add(this.trickG); this.visual.add(this.tilt); scene.add(this.visual);
       // springs give everything a little overshoot instead of a linear lerp
@@ -380,28 +380,31 @@ FW.Kart = (() => {
           case 'back': this.trickG.rotation.x = -a; break;
           default: this.trickG.rotation.z = a;
         }
-        wings[0].rotation.z = -(1.25 + Math.sin(this.t * 30) * 0.4);
-        wings[1].rotation.z = 1.25 + Math.sin(this.t * 30) * 0.4;
+        wings[0].rotation.z = -(1.2 + Math.sin(this.t * 26) * 0.35);
+        wings[1].rotation.z = 1.2 + Math.sin(this.t * 26) * 0.35;
       } else if (!this.onGround && this.air > 0.25) {
-        // airborne: both wings up and beating
-        const flap = Math.sin(this.t * 16) * 0.26;
-        wings[0].rotation.z = U.damp(wings[0].rotation.z, -(1.0 + flap), 11, dt);
-        wings[1].rotation.z = U.damp(wings[1].rotation.z, 1.0 + flap, 11, dt);
-        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.22, 8, dt);
-        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.22, 8, dt);
-        wings[0].rotation.y = U.damp(wings[0].rotation.y, 0, 8, dt);
-        wings[1].rotation.y = U.damp(wings[1].rotation.y, 0, 8, dt);
+        // airborne: arms thrown up, paws out
+        const flail = Math.sin(this.t * 15) * 0.3;
+        wings[0].rotation.z = U.damp(wings[0].rotation.z, -(1.0 + flail), 11, dt);
+        wings[1].rotation.z = U.damp(wings[1].rotation.z, 1.0 + flail, 11, dt);
+        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.5, 8, dt);
+        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.5, 8, dt);
       } else {
-        // on the road the wings work like ailerons: the outside one lifts,
-        // the inside one drops, and both trail back as you pick up speed
-        const base = 0.16 + spd * 0.2 + (this.drift.active ? 0.32 : 0);
-        const roll = steer * 0.62 + (this.drift.active ? this.drift.dir * 0.3 : 0);
-        wings[0].rotation.z = U.damp(wings[0].rotation.z, -U.clamp(base + roll, -0.35, 1.35), 12, dt);
-        wings[1].rotation.z = U.damp(wings[1].rotation.z, U.clamp(base - roll, -0.35, 1.35), 12, dt);
-        wings[0].rotation.y = U.damp(wings[0].rotation.y, -steer * 0.22 - spd * 0.3, 10, dt);
-        wings[1].rotation.y = U.damp(wings[1].rotation.y, -steer * 0.22 + spd * 0.3, 10, dt);
-        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.1, 8, dt);
-        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.1, 8, dt);
+        // hanging onto the bars: the outside arm straightens, the inside one tucks
+        const base = 0.12 + spd * 0.12 + (this.drift.active ? 0.24 : 0);
+        const roll = steer * 0.55 + (this.drift.active ? this.drift.dir * 0.3 : 0);
+        wings[0].rotation.z = U.damp(wings[0].rotation.z, -U.clamp(base + roll, -0.5, 1.2), 12, dt);
+        wings[1].rotation.z = U.damp(wings[1].rotation.z, U.clamp(base - roll, -0.5, 1.2), 12, dt);
+        wings[0].rotation.x = U.damp(wings[0].rotation.x, -0.28 - spd * 0.12, 9, dt);
+        wings[1].rotation.x = U.damp(wings[1].rotation.x, -0.28 - spd * 0.12, 9, dt);
+      }
+      // a heavy wombat jiggles: the body lags the scooter and wobbles on landing
+      const body = this.duck.userData.body;
+      if (body) {
+        const jig = this.sq.v - 1;
+        body.scale.set(1 - jig * 0.55, 1 + jig * 0.9, 1 - jig * 0.55);
+        body.rotation.z = U.damp(body.rotation.z, -steer * 0.14, 7, dt);
+        body.position.y = U.damp(body.position.y, jig * 0.06, 9, dt);
       }
       // the propeller: idles slowly, whirls with speed, goes wild in the air
       const propTarget = 4 + spd * 26 + (this.onGround ? 0 : 22) + (this.boost > 0 ? 18 : 0);
@@ -418,7 +421,7 @@ FW.Kart = (() => {
       head.rotation.x = U.damp(head.rotation.x, this.onGround ? 0 : -0.2, 6, dt);
       const honk = this.honkCd > 0.25 ? 1.2 : 1;
       head.scale.set(U.damp(head.scale.x, honk, 22, dt), U.damp(head.scale.y, honk, 22, dt), U.damp(head.scale.z, honk, 22, dt));
-      this.duck.position.y = 0.47 + Math.abs(Math.sin(this.t * 9)) * 0.025 * spd;
+      this.duck.position.y = 0.44 + Math.abs(Math.sin(this.t * 9)) * 0.03 * spd;
     }
     updateCamera(dt, camera, W) {
       const spF = U.clamp(Math.abs(this.speed) / MAX, 0, 1.3);

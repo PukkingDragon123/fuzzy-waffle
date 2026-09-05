@@ -1,7 +1,8 @@
 # Flippin' Waffles 🧇🦆
 
-A cozy, cute **3D browser game**: you are a white duck in an apron and a helicopter
-beanie (with a lollipop) who runs a waffle delivery business in **Yosemite Valley**.
+A cozy, cute **3D browser game**: you are a fat, chunky **wombat** in an apron and a
+helicopter beanie (with a lollipop) who runs a waffle delivery business in
+**Yosemite Valley**.
 
 The valley is laid out to follow the real place — a long east-west trough with the
 Merced meandering down the middle, Northside and Southside Drive along the floor,
@@ -10,13 +11,16 @@ Falls, Bridalveil, Mirror Lake, Camp 4, Curry Village and Glacier Point roughly 
 a map puts them. Traffic drives the loop, steel guardrails line the drops, and the HUD
 navigates you there like a maps app, route line and all.
 
-Cook each order by hand — drag the flour into the bowl, stir the whisk in circles, tip
-the batter onto the iron, flip it out on the beat, drop the toppings where you like them
-— then load the box onto your scooter and race the valley Mario-Kart style: drift-boosting,
+Cook each order by hand, all by tapping: open the fridge, tap ingredients into the bowl,
+tap to stir until the lumps are gone, tap the iron to pour, and lift the waffle out when
+it *looks* golden — there is no timing bar anywhere, you judge it by the colour, the
+steam and the smell. Spills and splatter stay on the counter as real mess; grab the
+sponge and wipe them whenever you like (a spotless kitchen tips better).
+
+Then load the box onto your scooter and race the valley Mario-Kart style: drift-boosting,
 hopping fences, grinding guardrails, launching off bouncy mushrooms, riding a banked
-timber flume, cutting through a hollow sequoia, dodging cars, and quacking at the bears
-who want your waffles. The duck steers with a pair of very big wings that flare and
-bank as you turn.
+timber flume, cutting through a hollow sequoia, dodging traffic, and honking at the bears
+who want your waffles. On a phone or tablet you get a **steering wheel and pedals**.
 
 Everything is modelled and lit smoothly and roundly; the **pixel look is a filter** —
 the scene renders to a low-resolution buffer that gets bloomed, colour-quantised and
@@ -39,14 +43,18 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
 ### Kitchen — drag and drop
 | Action | How |
 |---|---|
-| Add flour / sugar / egg / milk | **drag** the ingredient into the bowl (the ticket lists only what this waffle needs) |
-| Stir | **drag the whisk in circles** inside the bowl, let go in the green zone |
-| Pour | **drag the bowl** over the waffle iron and it tips itself |
-| Flip it out | **tap the iron** (or Space) when the meter is in the **golden zone** — one flip and the waffle somersaults onto the plate. Early is pale, late is burnt |
-| Toppings | **drag** them onto the waffle; they land where you drop them (drag one from the tray again to remove it) |
-| Box it | **drag the waffle** into the delivery box |
+| Get ingredients | **tap the fridge** to open it, then **tap an item** for one scoop. Over-scoop and it slops over the side |
+| Stir | **tap the bowl** — every tap beats out one lump. When the last lump goes it sparkles. Keep beating and batter goes everywhere |
+| Pour | **tap the bowl** once it is smooth (or tap the iron) |
+| Lift it out | **tap the iron** when it looks right. No meter: watch the colour through the steam, and the golden wisp that means it is ready |
+| Toppings | **tap a topping**, then **tap the waffle** to place it there. Miss and it hits the floor |
+| Box it | **tap the delivery box** |
+| Clean up | **tap the sponge** by the sink, then **tap any mess**. Tap anything else to put it down |
 
 ### Scooter
+On touch devices an on-screen **steering wheel**, **GO/BRAKE pedals** and hop/trick/quack
+buttons appear automatically.
+
 | Action | Keys |
 |---|---|
 | Drive / brake / reverse | W / S or ↑ / ↓ |
@@ -80,11 +88,18 @@ Progress saves in your browser. Cozy mode: there are no fail states, only smalle
 
 ## Tech
 - Vanilla JavaScript + [Three.js](https://threejs.org) r158 (vendored in `vendor/`).
-- **Round models, pixel filter.** Characters and props are built from spheres, capsules,
-  tori and rounded boxes, merged per material family so a whole character is 1–3 draw
-  calls. The scene is lit with a sun, a sky/ground hemisphere, a fill light and a
-  procedurally generated IBL probe, tone-mapped with ACES, then pushed through a
-  bright-pass bloom and a quantise + vignette pass at ~240 lines of vertical resolution.
+- **Round models, light pixel filter.** Characters and props are built from spheres,
+  capsules, tori and rounded boxes, merged per material family so a whole character is
+  1–3 draw calls. The scene is lit with a sun, a sky/ground hemisphere, a fill light and
+  a procedurally generated IBL probe, tone-mapped with ACES, then pushed through a
+  bright-pass bloom and a gentle quantise + vignette pass at roughly half resolution.
+- **Cut-out foliage.** Every tree is a trunk plus a handful of textured cards drawn from
+  one procedurally generated greyscale atlas (needle spray, broadleaf cluster, grass
+  tuft, plus a solid cell for trunks), so trunks and leaves share a single material and a
+  forest chunk is one draw call. Ground cover, ferns and meadow flowers use the same
+  atlas. Around 500k triangles and ~600 draw calls in a typical frame.
+- **Textures.** Floorboards, wallpaper, backsplash tiles, the rug, concrete and every
+  road sign are drawn to canvas at load time — no image files ship with the game.
 - **Springy animation.** A small spring solver drives squash-and-stretch, suspension
   travel, lean and every UI pop, so nothing moves on a plain linear lerp.
 - **Procedural world.** A heightfield valley with the Merced meandering through it,

@@ -10,6 +10,7 @@
   const bears = new FW.Bears(worldScene, W, fx);
   const kitchen = new FW.Kitchen();
   HUD.minimapInit(W.minimap);
+  const TOUCH = HUD.isTouch();
   FW.events.on('resize', (s) => { camera.aspect = s.aspect; camera.updateProjectionMatrix(); kitchen.camera.aspect = s.aspect; kitchen.camera.updateProjectionMatrix(); });
 
   const SAVE_KEY = 'flippinWaffles.save.v1';
@@ -18,7 +19,7 @@
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.day) save = Object.assign(defaultSave(), s); } catch (e) { /* no storage */ }
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } };
 
-  const G = { state: 'title', order: null, results: [], stolen: 0, timer: 0, timerMax: 0, cookLeft: 1, modal: false, paused: false, dayOrders: 3, dayCoins: 0, dayLog: [], hype: 0, tokens: 0, titleT: 0, deliverT: 0, muted: false };
+  const G = { state: 'title', order: null, results: [], stolen: 0, timer: 0, timerMax: 0, cookLeft: 1, modal: false, paused: false, dayOrders: 3, dayCoins: 0, dayLog: [], hype: 0, tokens: 0, messes: 0, titleT: 0, deliverT: 0, muted: false };
   const START = { x: 0, z: 62, yaw: 0 };
   const destInfo = () => { const o = {}; for (const [id, d] of Object.entries(W.destinations)) o[id] = { name: d.name, x: d.x, z: d.z, dist: d.dist }; return o; };
   FW.Orders.seed(1000 + save.day * 7 + save.orderIndex);
@@ -44,9 +45,10 @@
     G.results = []; G.stolen = 0;
     W.setTimeOfDay([0.12, 0.5, 0.9][save.orderIndex % 3]);
     G.state = 'kitchen'; G.timer = G.timerMax = G.order.cookTime;
+    HUD.touchControls(false); HUD.mess(0);
     HUD.hideAll(); HUD.stats(save); HUD.ticket(G.order, { index: 0, made: [], counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, toppings: new Set() });
     kitchen.onProgress = (p) => HUD.ticket(G.order, p);
-    kitchen.onDone = (made) => { G.results = made; G.cookLeft = U.clamp(G.timer / G.timerMax, 0, 1); setTimeout(startRide, 600); };
+    kitchen.onDone = (made, messCount) => { G.results = made; G.messes = messCount || 0; G.cookLeft = U.clamp(G.timer / G.timerMax, 0, 1); setTimeout(startRide, 600); };
     kitchen.startOrder(G.order);
     A.playMusic('kitchen');
     document.getElementById('game').style.cursor = 'crosshair';
@@ -65,6 +67,7 @@
     HUD.waffles(true, G.order.waffles.length, 0);
     HUD.hint(`Deliver to <b>${HUD.esc(G.order.dest.name)}</b>! Space = hop/drift · Shift = trick in the air · H = quack at bears`);
     A.playMusic('ride');
+    HUD.touchControls(TOUCH);
     document.getElementById('game').style.cursor = 'default';
     kart.updateCamera(0, camera, W);
     await HUD.fade(0, 0.5);
@@ -146,6 +149,9 @@
     const pay = FW.Orders.payout(G.order, G.results, G.timer / G.timerMax, stolen, kart.trickPoints);
     const cookTip = Math.round(3 * G.cookLeft); pay.coins += cookTip; pay.lines.push({ label: 'Fresh & fast cooking', value: cookTip });
     if (kart.coins) { pay.coins += kart.coins; pay.lines.push({ label: `Syrup tokens (${kart.coins})`, value: kart.coins }); }
+    const tidy = G.messes === 0 ? 5 : G.messes <= 2 ? 2 : -Math.min(6, G.messes - 2);
+    pay.coins += tidy;
+    pay.lines.push({ label: G.messes === 0 ? 'Spotless kitchen' : `Kitchen mess (${G.messes})`, value: tidy });
     save.coins += pay.coins; save.delivered++; G.dayCoins += pay.coins; save.bestTip = Math.max(save.bestTip, pay.coins);
     save.rep = U.clamp(save.rep + (pay.happiness - 0.55) * 0.6, 1, 5);
     G.dayLog.push({ name: G.order.customer.name, dest: G.order.dest.name, coins: pay.coins, happiness: pay.happiness });
@@ -153,7 +159,7 @@
     const c = G.order.customer; const quote = pay.happiness > 0.7 ? c.quotes[0] : pay.happiness > 0.4 ? c.quotes[1] : 'Hmm… thanks, I guess.';
     if (pay.happiness > 0.7) A.sfx.fanfare(); else if (pay.happiness > 0.4) A.sfx.happy(); else A.sfx.sad();
     const face = pay.happiness > 0.7 ? '😊' : pay.happiness > 0.4 ? '🙂' : '😕';
-    let rows = pay.lines.map((l) => `<tr><td>${HUD.esc(l.label)}${l.quality !== undefined ? ` <span class="stars">${HUD.stars(l.quality * 5)}</span>` : ''}</td><td class="coins">+${l.value}</td></tr>`).join('');
+    let rows = pay.lines.map((l) => `<tr><td>${HUD.esc(l.label)}${l.quality !== undefined ? ` <span class="stars">${HUD.stars(l.quality * 5)}</span>` : ''}</td><td class="coins">${l.value < 0 ? '' : '+'}${l.value}</td></tr>`).join('');
     HUD.panel(`<h2>Delivered! ${face}</h2><div class="quote">“${HUD.esc(quote)}” — ${HUD.esc(c.name)}</div><table>${rows}</table><div class="big">Total: 🪙 ${pay.coins}</div>${stolen ? `<div class="quote">${stolen} waffle${stolen > 1 ? 's were' : ' was'} eaten by bears. Honk (H) to scare them next time!</div>` : ''}`,
       [{ label: 'Ride home', onClick: () => { HUD.closePanel(); G.modal = false; rideHome(); } }]);
     G.modal = true;
@@ -215,8 +221,8 @@
       case 'title': {
         G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
         const a = G.titleT * 0.14, hy = W.groundY(0, 66);
-        camera.position.set(Math.sin(a) * 27, hy + 12 + Math.sin(G.titleT * 0.5) * 1.2, 66 + Math.cos(a) * 27);
-        camera.lookAt(15, hy + 4.5, 66); if (camera.fov !== 52) { camera.fov = 52; camera.updateProjectionMatrix(); }
+        camera.position.set(Math.sin(a) * 36, hy + 23 + Math.sin(G.titleT * 0.5) * 1.6, 66 + Math.cos(a) * 36);
+        camera.lookAt(13, hy + 5, 66); if (camera.fov !== 52) { camera.fov = 52; camera.updateProjectionMatrix(); }
         break; }
       case 'kitchen': {
         kitchen.update(dt, Inp);

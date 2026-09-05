@@ -77,6 +77,8 @@ FW.Audio = (() => {
     plop() { tone(300, 0.1, 'sine', 0.2, { to: 620 }); noise(0.06, 0.07, { freq: 1600 }); },
     pick() { tone(720, 0.06, 'triangle', 0.12, { to: 980 }); },
     stir() { noise(0.09, 0.05, { type: 'bandpass', freq: 1100 + Math.random() * 700, q: 3 }); },
+    splat() { noise(0.16, 0.22, { type: 'lowpass', freq: 900, to: 260 }); tone(150, 0.14, 'sine', 0.16, { to: 70 }); },
+    squeak() { tone(1100, 0.1, 'sine', 0.09, { to: 1800 }); tone(1500, 0.09, 'sine', 0.06, { to: 2400, delay: 0.06 }); noise(0.12, 0.05, { type: 'bandpass', freq: 3200, q: 4 }); },
     note(i) { const sc = [523, 587, 659, 784, 880, 1047, 1175]; tone(sc[Math.min(i, sc.length - 1)], 0.16, 'triangle', 0.14); tone(sc[Math.min(i, sc.length - 1)] * 2, 0.1, 'sine', 0.05, { delay: 0.02 }); },
     sparkle() { for (let i = 0; i < 4; i++) tone(1200 + i * 380, 0.12, 'sine', 0.06, { delay: i * 0.035 }); },
     horn() { tone(392, 0.22, 'square', 0.13); tone(494, 0.22, 'square', 0.11, { delay: 0.01 }); },

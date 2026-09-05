@@ -9,7 +9,7 @@ FW.World = (() => {
   const SIZE = 480, HALF = 240, CELL = 2, N = SIZE / CELL, NV = N + 1;
   const heights = new Float32Array(NV * NV);
   const surface = new Uint8Array(N * N);
-  const SURF = { GRASS: 0, ROAD: 1, DIRT: 2, SHOULDER: 3, LINE: 4, SAND: 5, WATER: 6, ROCK: 7, SNOW: 8, WOOD: 9, FOREST: 10 };
+  const SURF = { GRASS: 0, ROAD: 1, DIRT: 2, SHOULDER: 3, LINE: 4, SAND: 5, WATER: 6, ROCK: 7, SNOW: 8, WOOD: 9, FOREST: 10, EDGE: 11, JOINT: 12 };
   const WATER_Y = -0.9;
   const rand = U.rng(70141);
 
@@ -216,8 +216,12 @@ FW.World = (() => {
       const { d, s } = nearestRoad(x, z);
       if (s && t !== SURF.WATER) {
         if (s.type === 'road') {
-          if (d < 4.4) { t = SURF.ROAD; if (d < 0.9 && s.s % 12 < 6) t = SURF.LINE; }
-          else if (d < 5.8) t = SURF.SHOULDER;
+          if (d < 4.5) {
+            t = SURF.ROAD;
+            if (s.s % 9 < 1.1) t = SURF.JOINT;                    // slab expansion joints
+            if (d > 3.7) t = SURF.EDGE;                            // painted edge line
+            if (d < 0.75 && s.s % 13 < 6.5) t = SURF.LINE;         // centre dashes
+          } else if (d < 6.0) t = SURF.SHOULDER;
         } else if (d < 2.6) t = SURF.DIRT;
       }
       surface[iz * N + ix] = t;
@@ -230,7 +234,9 @@ FW.World = (() => {
     let c;
     switch (surf) {
       case SURF.ROAD: c = P.road[Math.floor(r * 3)]; break;
-      case SURF.LINE: c = P.line; break;
+      case SURF.JOINT: c = P.joint; break;
+      case SURF.EDGE: c = P.line; break;
+      case SURF.LINE: c = P.lineY; break;
       case SURF.DIRT: c = P.dirt[Math.floor(r * 3)]; break;
       case SURF.SHOULDER: c = P.shoulder; break;
       case SURF.SAND: c = P.sand; break;
@@ -304,20 +310,22 @@ FW.World = (() => {
   // can cull most of the forest instead of drawing every tree every frame.
   const GRID = 6;
   function buildForest() {
+    const LEAF = 'leafy';
     const types = {
-      fir: { geo: V.firGeo(), r: 1.0, sc: [0.72, 1.5], tint: 0.2 },
-      pine: { geo: V.pineGeo(), r: 1.0, sc: [0.75, 1.4], tint: 0.18 },
-      cedar: { geo: V.cedarGeo(), r: 0.95, sc: [0.7, 1.3], tint: 0.2 },
-      sequoia: { geo: V.sequoiaGeo(), r: 1.9, sc: [0.85, 1.35], tint: 0.12 },
-      oak: { geo: V.oakGeo(false), r: 1.5, sc: [0.8, 1.35], tint: 0.18 },
-      oakGold: { geo: V.oakGeo(true), r: 1.5, sc: [0.8, 1.3], tint: 0.18 },
-      snag: { geo: V.snagGeo(), r: 0.7, sc: [0.8, 1.3], tint: 0.16 },
-      deadfall: { geo: V.deadfallGeo(), r: 1.1, sc: [0.8, 1.4], tint: 0.16, flat: true },
+      fir: { geo: V.firGeo(), r: 1.0, sc: [0.72, 1.5], tint: 0.24, m: LEAF },
+      pine: { geo: V.pineGeo(), r: 1.0, sc: [0.75, 1.4], tint: 0.2, m: LEAF },
+      cedar: { geo: V.cedarGeo(), r: 0.95, sc: [0.7, 1.3], tint: 0.24, m: LEAF },
+      sequoia: { geo: V.sequoiaGeo(), r: 1.9, sc: [0.85, 1.35], tint: 0.14, m: LEAF },
+      oak: { geo: V.oakGeo(false), r: 1.5, sc: [0.8, 1.35], tint: 0.2, m: LEAF },
+      oakGold: { geo: V.oakGeo(true), r: 1.5, sc: [0.8, 1.3], tint: 0.2, m: LEAF },
+      snag: { geo: V.snagGeo(), r: 0.7, sc: [0.8, 1.3], tint: 0.16, m: LEAF },
+      deadfall: { geo: V.deadfallGeo(), r: 1.1, sc: [0.8, 1.4], tint: 0.16, flat: true, m: LEAF },
       stump: { geo: V.stumpGeo(), r: 0.55, sc: [0.8, 1.3], tint: 0.14 },
-      fern: { geo: V.fernGeo(), r: 0, sc: [0.8, 1.6], tint: 0.26, noCol: true, noShadow: true },
-      bush: { geo: V.bushGeo(), r: 0.7, sc: [0.8, 1.5], tint: 0.22, noCol: true },
+      fern: { geo: V.fernGeo(), r: 0, sc: [0.8, 1.6], tint: 0.3, noCol: true, noShadow: true, m: LEAF },
+      grass: { geo: V.grassGeo(), r: 0, sc: [0.7, 1.8], tint: 0.34, noCol: true, noShadow: true, m: LEAF },
+      bush: { geo: V.bushGeo(), r: 0.7, sc: [0.8, 1.5], tint: 0.26, noCol: true, m: LEAF },
       rock: { geo: V.rockGeo(), r: 0.95, sc: [0.6, 1.9], tint: 0.12 },
-      flower: { geo: V.flowerGeo(), r: 0, sc: [0.8, 1.7], tint: 0.08, noCol: true, noShadow: true },
+      flower: { geo: V.flowerGeo(), r: 0, sc: [0.8, 1.7], tint: 0.14, noCol: true, noShadow: true, m: LEAF },
     };
     for (const t of Object.values(types)) t.buckets = Array.from({ length: GRID * GRID }, () => []);
     const bucketOf = (x, z) => U.clamp(Math.floor((z + HALF) / SIZE * GRID), 0, GRID - 1) * GRID + U.clamp(Math.floor((x + HALF) / SIZE * GRID), 0, GRID - 1);
@@ -329,68 +337,77 @@ FW.World = (() => {
       if (!e.noCol) addCollider(x, z, e.r * scale * (t === 'deadfall' ? 1.6 : 1), t === 'rock' ? 'rock' : 'tree');
     };
     const pick = (t) => U.lerp(types[t].sc[0], types[t].sc[1], rand());
-    // main canopy pass — dense, dark, and tall
+    // Placement walks a jittered grid instead of rejection-sampling the map,
+    // which is what a quarter of a million random probes used to cost.
+    const gridPass = (step, jitter, fn) => {
+      for (let z = -232; z <= 232; z += step) for (let x = -232; x <= 232; x += step) fn(x + (rand() - 0.5) * jitter, z + (rand() - 0.5) * jitter);
+    };
+    const roadClear = (x, z, pave, trail) => { const { d, s: rs } = nearestRoad(x, z); return !rs || d > (rs.type === 'road' ? pave : trail); };
+    const openGround = (x, z) => {
+      const sf = surfaceAt(x, z);
+      return sf !== SURF.WATER && sf !== SURF.SAND && sf !== SURF.SNOW && sf !== SURF.ROCK &&
+        sf !== SURF.ROAD && sf !== SURF.LINE && sf !== SURF.EDGE && sf !== SURF.JOINT && sf !== SURF.SHOULDER && sf !== SURF.DIRT;
+    };
+    // --- canopy ---
     let trees = 0;
-    for (let i = 0; i < 70000 && trees < 2600; i++) {
-      const x = (rand() - 0.5) * 470, z = (rand() - 0.5) * 470;
-      const az = Math.abs(z), h = terrainHeight(x, z);
-      const meadow = meadowAt(x, z);
-      let dens = 0.9;
-      if (meadow > 0.4) dens = 0.05;               // keep the meadows open
-      else if (az < 26) dens = 0.42;               // river corridor
-      if (h > 150) dens *= 0.15;                   // above the treeline
-      else if (h > 110) dens *= 0.5;
-      if (rand() > dens) continue;
+    gridPass(5.4, 4.6, (x, z) => {
+      const az = Math.abs(z), h = terrainHeight(x, z), meadow = meadowAt(x, z);
+      let dens = 0.92;
+      if (meadow > 0.4) dens = 0.05;
+      else if (az < 26) dens = 0.45;
+      if (h > 150) dens *= 0.12; else if (h > 110) dens *= 0.5;
+      if (rand() > dens) return;
       let t;
       const r0 = rand();
       if (h > 40 && az > 70) t = r0 < 0.62 ? 'fir' : r0 < 0.86 ? 'cedar' : 'pine';
       else if (az < 34 && h < 20) t = r0 < 0.4 ? 'oak' : r0 < 0.55 ? 'oakGold' : r0 < 0.8 ? 'pine' : 'fir';
       else t = r0 < 0.5 ? 'fir' : r0 < 0.72 ? 'pine' : r0 < 0.9 ? 'cedar' : 'oak';
       const scale = pick(t);
-      if (!canPlace(x, z, types[t].r * scale * 0.55)) continue;
+      if (!canPlace(x, z, types[t].r * scale * 0.5)) return;
       add(t, x, z, scale, rand() * Math.PI * 2); trees++;
-    }
-    // a giant sequoia grove on the south-west bench
-    for (let i = 0, n = 0; i < 4000 && n < 44; i++) {
-      const x = -168 + (rand() - 0.5) * 60, z = -96 + (rand() - 0.5) * 54;
-      const sc = pick('sequoia');
+    });
+    // giant sequoia grove on the south-west bench
+    for (let i = 0, n = 0; i < 900 && n < 40; i++) {
+      const x = -168 + (rand() - 0.5) * 60, z = -96 + (rand() - 0.5) * 54, sc = pick('sequoia');
       if (!canPlace(x, z, 2.4 * sc)) continue;
       add('sequoia', x, z, sc, rand() * 6.28); n++;
     }
-    const scatter = (t, count, tries, fn) => { for (let i = 0, n = 0; i < tries && n < count; i++) { const x = (rand() - 0.5) * 470, z = (rand() - 0.5) * 470; if (fn && !fn(x, z)) continue; const sc = pick(t); if (!canPlace(x, z, types[t].r * sc * 0.6, t === 'rock')) continue; add(t, x, z, sc, rand() * 6.28); n++; } };
-    scatter('snag', 170, 9000, (x, z) => Math.abs(z) > 30);
-    scatter('deadfall', 210, 9000, (x, z) => Math.abs(z) > 26);
-    scatter('stump', 120, 6000);
-    scatter('fern', 760, 22000, (x, z) => surfaceAt(x, z) === SURF.FOREST);
-    scatter('bush', 380, 12000);
-    scatter('rock', 360, 12000, (x, z) => surfaceAt(x, z) === SURF.ROCK || rand() < 0.25);
-    scatter('flower', 300, 12000, (x, z) => meadowAt(x, z) > 0.35);
-    // scree and boulders broken off the walls, so the granite is not a bare slab
-    for (let i = 0, n = 0; i < 14000 && n < 340; i++) {
-      const x = (rand() - 0.5) * 470, z = (rand() - 0.5) * 470;
-      if (Math.abs(z) < 74 || Math.abs(z) > 150) continue;
-      const sc = 0.5 + rand() * 1.7;
-      if (!canPlace(x, z, 0.9 * sc, true)) continue;
-      add('rock', x, z, sc, rand() * 6.28); n++;
-    }
-    // hardy conifers clinging to the talus at the foot of the walls
-    for (let i = 0, n = 0; i < 20000 && n < 420; i++) {
-      const x = (rand() - 0.5) * 470, z = (rand() - 0.5) * 470;
+    // --- understory and detail ---
+    gridPass(11, 9, (x, z) => {
+      const az = Math.abs(z), r0 = rand();
+      if (r0 < 0.2 && az > 30) { const sc = pick('snag'); if (canPlace(x, z, 0.4 * sc)) add('snag', x, z, sc, rand() * 6.28); }
+      else if (r0 < 0.42 && az > 26) { const sc = pick('deadfall'); if (canPlace(x, z, 0.7 * sc)) add('deadfall', x, z, sc, rand() * 6.28); }
+      else if (r0 < 0.52) { const sc = pick('stump'); if (canPlace(x, z, 0.35 * sc)) add('stump', x, z, sc, rand() * 6.28); }
+      else if (r0 < 0.78) { const sc = pick('bush'); if (canPlace(x, z, 0.45 * sc)) add('bush', x, z, sc, rand() * 6.28); }
+      else { const sc = pick('rock'); if (canPlace(x, z, 0.6 * sc, true) && (surfaceAt(x, z) === SURF.ROCK || rand() < 0.3)) add('rock', x, z, sc, rand() * 6.28); }
+    });
+    // scree and talus conifers on the walls
+    gridPass(9, 8, (x, z) => {
       const az = Math.abs(z);
-      if (az < 70 || az > 108) continue;
-      if (slopeAt(x, z) > 1.5) continue;
-      const t = rand() < 0.62 ? 'fir' : 'cedar';
-      const sc = pick(t) * 0.85;
-      if (!canPlace(x, z, types[t].r * sc * 0.5, true)) continue;
-      add(t, x, z, sc, rand() * 6.28); n++;
-    }
+      if (az < 72 || az > 152) return;
+      if (rand() < 0.5) { const sc = 0.5 + rand() * 1.6; if (canPlace(x, z, 0.7 * sc, true)) add('rock', x, z, sc, rand() * 6.28); }
+      else if (az < 110 && slopeAt(x, z) < 1.5) { const t = rand() < 0.62 ? 'fir' : 'cedar', sc = pick(t) * 0.85; if (canPlace(x, z, types[t].r * sc * 0.45, true)) add(t, x, z, sc, rand() * 6.28); }
+    });
+    // --- ground cover: ferns in the forest, grass and flowers everywhere else ---
+    gridPass(3.3, 2.9, (x, z) => {
+      if (!openGround(x, z)) return;
+      const { d, s: rs } = nearestRoad(x, z);
+      const near = rs ? d : 999;
+      if (near < (rs && rs.type === 'road' ? 6.4 : 3.2)) return;
+      const sf = surfaceAt(x, z), meadow = meadowAt(x, z);
+      const want = near < 26 ? 0.9 : meadow > 0.3 ? 0.72 : sf === SURF.FOREST ? 0.5 : 0.34;
+      if (rand() > want) return;
+      if (sf === SURF.FOREST && rand() < 0.34) add('fern', x, z, pick('fern'), rand() * 6.28);
+      else if (meadow > 0.35 && rand() < 0.1) add('flower', x, z, pick('flower'), rand() * 6.28);
+      else add('grass', x, z, pick('grass'), rand() * 6.28);
+    });
     // build the instanced meshes
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), Pv = new THREE.Vector3(), AX = new THREE.Vector3(0, 1, 0), tint = new THREE.Color();
     let count = 0;
     for (const [name, e] of Object.entries(types)) {
       for (const list of e.buckets) {
         if (!list.length) continue;
-        const im = new THREE.InstancedMesh(e.geo, FW.Pixel.vmat({ roughness: 0.96 }), list.length);
+        const im = new THREE.InstancedMesh(e.geo, e.m ? FW.Pixel.fam(e.m) : FW.Pixel.vmat({ roughness: 0.96 }), list.length);
         im.castShadow = !e.noShadow; im.receiveShadow = true;
         list.forEach((it, i) => {
           Q.setFromAxisAngle(AX, it.yaw); S.set(it.sx, it.sy, it.sz); Pv.set(it.x, it.y, it.z);
@@ -650,6 +667,71 @@ FW.World = (() => {
     trail('ahwahnee', 8, roadsById.ahwahnee.length - 8, 5);
     trail('glacierpt', 40, roadsById.glacierpt.length - 40, 12, 1.8);
     trail('elcapmeadow', 6, roadsById.elcapmeadow.length - 6, 5);
+  }
+
+  // ---------------- roadside signage ----------------
+  function signAt(roadId, sMeters, side, kind, text, opts) {
+    const r = roadsById[roadId];
+    const q = r && r.samples[U.clamp(Math.round(sMeters / 2), 0, r.samples.length - 1)];
+    if (!q) return;
+    const x = q.x - q.tz * side * 7.4, z = q.z + q.tx * side * 7.4;
+    const g = V.roadSign(kind, text, opts);
+    place(g, x, z, Math.atan2(q.tx, q.tz) + (side > 0 ? Math.PI : 0) + Math.PI);
+    addCollider(x, z, 0.35, 'prop');
+  }
+  function buildSigns() {
+    signAt('northside', 90, -1, 'speed', '25');
+    signAt('northside', 210, -1, 'warn', '!');
+    signAt('northside', 350, -1, 'chevron');
+    signAt('northside', 470, -1, 'guide', 'EL CAPITAN|2 MI');
+    signAt('northside', 610, -1, 'speed', '25');
+    signAt('northside', 720, -1, 'warn', '!');
+    signAt('southside', 70, 1, 'guide', 'THE VILLAGE|CURRY VILLAGE');
+    signAt('southside', 190, 1, 'chevron');
+    signAt('southside', 330, 1, 'speed', '25');
+    signAt('southside', 470, 1, 'warn', '!');
+    signAt('southside', 620, 1, 'guide', 'HAPPY ISLES|MIRROR LAKE');
+    signAt('glacierpt', 60, -1, 'warn', '!');
+    signAt('glacierpt', 150, -1, 'chevron');
+    signAt('glacierpt', 250, -1, 'speed', '15');
+    signAt('glacierpt', 330, -1, 'guide', 'GLACIER PT|1 MI');
+    signAt('mirror', 40, 1, 'guide', 'MIRROR LAKE');
+    signAt('sentinel', 20, 1, 'warn', '!');
+    signAt('happy', 30, -1, 'chevron');
+    for (let i = 1; i <= 6; i++) {
+      const q = roadPoint('northside', i * 120);
+      place(V.mileMarker(String(i)), q.x + q.tz * 6.6, q.z - q.tx * 6.6, Math.atan2(q.tx, q.tz) + Math.PI / 2);
+    }
+  }
+
+  // ---------------- atmosphere ----------------
+  const mist = [];
+  let motes = null;
+  function buildAtmosphere() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grd.addColorStop(0, 'rgba(255,255,255,.55)'); grd.addColorStop(0.55, 'rgba(255,255,255,.22)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.42, toneMapped: false });
+    for (let i = 0; i < 16; i++) {
+      const x = (rand() - 0.5) * 380, z = riverZ(x) + (rand() - 0.5) * 90;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.scale.setScalar(28 + rand() * 46);
+      m.position.set(x, groundY(x, z) + 0.9 + rand() * 1.4, z);
+      m.renderOrder = 3;
+      scene.add(m);
+      mist.push({ m, x, z, phase: rand() * 6.28, drift: 0.4 + rand() * 0.7 });
+    }
+    const g2 = new THREE.BufferGeometry();
+    const N2 = 260, pos = new Float32Array(N2 * 3);
+    for (let i = 0; i < N2; i++) { pos[i * 3] = (rand() - 0.5) * 60; pos[i * 3 + 1] = rand() * 14; pos[i * 3 + 2] = (rand() - 0.5) * 60; }
+    g2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    motes = new THREE.Points(g2, new THREE.PointsMaterial({ color: '#fff3d8', size: 0.13, sizeAttenuation: true, transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false }));
+    motes.frustumCulled = false;
+    scene.add(motes);
   }
 
   // ---------------- traffic ----------------
@@ -1063,6 +1145,8 @@ FW.World = (() => {
     buildBuildings();
     buildBarriers();
     buildTraffic();
+    buildSigns();
+    buildAtmosphere();
     const spots = [[-46, 22], [-40, 16], [30, -22], [24, -28], [104, 30], [110, 24], [-96, 60], [166, -40], [70, -96], [-158, -70], [-152, -76], [122, 96]];
     for (const [x, z] of spots) if (canPlace(x, z, 1.2)) addBouncer(x, z, 1.1 + rand() * 0.5);
     for (let i = 0, n = 0; i < 1200 && n < 12; i++) { const x = (rand() - 0.5) * 320, z = (rand() - 0.5) * 200; if (!canPlace(x, z, 1.4)) continue; addBouncer(x, z, 1 + rand() * 0.6); n++; }
@@ -1107,6 +1191,11 @@ FW.World = (() => {
     }
     sun.position.copy(playerPos).addScaledVector(sunDir, 110); sun.target.position.copy(playerPos); sun.target.updateMatrixWorld();
     if (camera) { sky.position.copy(camera.position); sunDisc.position.copy(camera.position).addScaledVector(sunDir, 800); sunDisc.lookAt(camera.position); }
+    for (const mi of mist) {
+      mi.m.position.x = mi.x + Math.sin(time * 0.11 + mi.phase) * 9 * mi.drift;
+      mi.m.material.opacity = 0.34 + Math.sin(time * 0.5 + mi.phase) * 0.12;
+    }
+    if (motes) { motes.position.set(Math.round(playerPos.x / 30) * 30, 0, Math.round(playerPos.z / 30) * 30); motes.rotation.y = time * 0.02; }
     if (Math.random() < dt * 4) for (const c of chimneys) fx.spawn({ x: c.x, y: c.y, z: c.z, vy: 1.3, vx: 0.3, vz: 0.1, life: 2.6, size: 0.42, color: '#efe9df', gravity: -0.4, shrink: false });
   }
   function resetPickups() {

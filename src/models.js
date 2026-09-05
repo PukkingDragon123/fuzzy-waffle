@@ -47,7 +47,10 @@ FW.Models = (() => {
   function blob(r, detail = 1) { const k = key('b', r, detail); if (geoCache.has(k)) return geoCache.get(k); const g = new THREE.IcosahedronGeometry(r, detail); geoCache.set(k, g); return g; }
 
   // part descriptor
-  function p(geo, color, x = 0, y = 0, z = 0, o = {}) { return { geo, color, x, y, z, rx: o.rx || 0, ry: o.ry || 0, rz: o.rz || 0, sx: o.sx ?? o.s ?? 1, sy: o.sy ?? o.s ?? 1, sz: o.sz ?? o.s ?? 1, mat: o.mat || 'matte' }; }
+  function p(geo, color, x = 0, y = 0, z = 0, o = {}) { return { geo, color, x, y, z, rx: o.rx || 0, ry: o.ry || 0, rz: o.rz || 0, sx: o.sx ?? o.s ?? 1, sy: o.sy ?? o.s ?? 1, sz: o.sz ?? o.s ?? 1, mat: o.mat || 'matte', uv: o.uv || null }; }
+  // flat card used for every leaf, needle spray and grass tuft
+  const quadCache = new Map();
+  function quad(w, h) { const k = w + 'x' + h; if (quadCache.has(k)) return quadCache.get(k); const g = new THREE.PlaneGeometry(w, h); quadCache.set(k, g); return g; }
 
   const nonIndexed = new Map();
   function ni(g) { if (g.index === null) return g; if (nonIndexed.has(g)) return nonIndexed.get(g); const n = g.toNonIndexed(); nonIndexed.set(g, n); return n; }
@@ -60,26 +63,36 @@ FW.Models = (() => {
     for (const [m, list] of Object.entries(groups)) {
       let total = 0;
       for (const q of list) total += ni(q.geo).attributes.position.count;
-      const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), cls = new Float32Array(total * 3);
-      let k = 0;
+      const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), cls = new Float32Array(total * 3), uvs = new Float32Array(total * 2);
+      let k = 0, k2 = 0;
       for (const q of list) {
-        const g = ni(q.geo), gp = g.attributes.position, gn = g.attributes.normal;
+        const g = ni(q.geo), gp = g.attributes.position, gn = g.attributes.normal, gu = g.attributes.uv;
         E.set(q.rx, q.ry, q.rz); Q.setFromEuler(E); Pv.set(q.x, q.y, q.z); S.set(q.sx, q.sy, q.sz);
         M.compose(Pv, Q, S); NM.getNormalMatrix(M);
         col.set(q.color);
+        const cell = q.uv ? FW.Pixel.UVCELL[q.uv] : null;
+        const solid = q.uv === 'solid' || (!q.uv && m === 'leafy');
         for (let i = 0; i < gp.count; i++) {
           v.fromBufferAttribute(gp, i).applyMatrix4(M);
           n.fromBufferAttribute(gn, i).applyMatrix3(NM).normalize();
           pos[k] = v.x; pos[k + 1] = v.y; pos[k + 2] = v.z;
           nor[k] = n.x; nor[k + 1] = n.y; nor[k + 2] = n.z;
           cls[k] = col.r; cls[k + 1] = col.g; cls[k + 2] = col.b;
-          k += 3;
+          if (cell && !solid && gu) {
+            uvs[k2] = cell[0] + gu.getX(i) * (cell[2] - cell[0]);
+            uvs[k2 + 1] = cell[1] + gu.getY(i) * (cell[3] - cell[1]);
+          } else if (solid) {
+            const sc = FW.Pixel.UVCELL.solid;
+            uvs[k2] = (sc[0] + sc[2]) / 2; uvs[k2 + 1] = (sc[1] + sc[3]) / 2;
+          } else if (gu) { uvs[k2] = gu.getX(i); uvs[k2 + 1] = gu.getY(i); }
+          k += 3; k2 += 2;
         }
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(cls, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       out.push({ geo, mat: m });
     }
     return out;
@@ -94,106 +107,96 @@ FW.Models = (() => {
     return g;
   }
   // single merged geometry (for instancing) — all parts forced to one material family
-  function geoOf(parts) {
-    const merged = mergeParts(parts.map((q) => Object.assign({}, q, { mat: 'matte' })));
+  function geoOf(parts, mat = 'matte') {
+    const merged = mergeParts(parts.map((q) => Object.assign({}, q, { mat })));
     return merged[0].geo;
   }
 
-  // ---------- the duck ----------
-  // White duck, berry apron with a waffle badge, helicopter beanie, and a lollipop.
-  function duck(opts = {}) {
+  // ---------- the hero: a fat, chunky wombat ----------
+  // Low, wide and heavy, with stubby limbs, a broad nose and simple dot eyes.
+  // The body, head and belly hang off separate pivots so everything can jiggle.
+  function hero(opts = {}) {
     const g = new THREE.Group();
-    const D = P.duck, DS = P.duckShade, O = P.beak, OD = P.beakDark;
+    const F = P.fur, FD = P.furDark, FL = P.furLight, N = P.nose;
     const sit = !!opts.sitting;
+    const bodyG = new THREE.Group();
     const parts = [];
-    // body: soft egg
-    parts.push(p(sphere(0.3, 14, 10), D, 0, 0.34, 0, { sy: 1.18, sz: 1.12, mat: 'soft' }));
-    parts.push(p(sphere(0.22, 12, 8), DS, 0, 0.3, -0.24, { sy: 0.85, sz: 0.7, mat: 'soft' }));
-    // tail
-    parts.push(p(sphere(0.11, 8, 6), D, 0, 0.44, -0.33, { sx: 1.5, sy: 0.7, sz: 1.5, rx: 0.5, mat: 'soft' }));
-    // apron: bib + skirt + strap + trim
+    // barrel body — wider than it is tall
+    parts.push(p(sphere(0.34, 14, 10), F, 0, 0.36, 0, { sx: 1.22, sy: 0.98, sz: 1.14, mat: 'soft' }));
+    parts.push(p(sphere(0.28, 12, 9), FL, 0, 0.3, 0.16, { sx: 1.02, sy: 0.86, sz: 0.72, mat: 'soft' }));
+    parts.push(p(sphere(0.3, 12, 8), FD, 0, 0.42, -0.24, { sx: 1.05, sy: 0.84, sz: 0.6, mat: 'soft' }));
+    parts.push(p(sphere(0.07, 8, 6), FD, 0, 0.3, -0.42, { sz: 0.8, mat: 'soft' })); // stub tail
+    // apron
     if (opts.apron !== false) {
-      // the bib and skirt sit proud of the body so no white pokes through
-      parts.push(p(sphere(0.132, 14, 10), P.apron, 0, 0.47, 0.255, { sx: 1.05, sy: 1.24, sz: 0.66, mat: 'soft' }));
-      parts.push(p(cyl(0.315, 0.4, 0.19, 18, true), P.apron, 0, 0.175, 0.03, { sz: 0.95, mat: 'shell' }));
-      parts.push(p(torus(0.313, 0.022, 6, 20), P.apronTrim, 0, 0.085, 0.03, { rx: Math.PI / 2, sz: 0.95 }));
-      parts.push(p(capsule(0.022, 0.17), P.apron, -0.115, 0.595, 0.205, { rx: -0.22, rz: -0.4 }));
-      parts.push(p(capsule(0.022, 0.17), P.apron, 0.115, 0.595, 0.205, { rx: -0.22, rz: 0.4 }));
-      parts.push(p(torus(0.058, 0.021, 6, 12), P.apronTrim, 0, 0.42, -0.335, { rz: 0.5 }));
-      parts.push(p(torus(0.058, 0.021, 6, 12), P.apronTrim, 0, 0.42, -0.335, { rz: -0.5 }));
-      parts.push(p(sphere(0.03, 8, 6), P.apronTrim, 0, 0.42, -0.335));
-      // waffle medallion on the bib
-      parts.push(p(cyl(0.05, 0.05, 0.02, 14), P.gold, 0, 0.47, 0.33, { rx: Math.PI / 2, mat: 'soft' }));
-      parts.push(p(torus(0.05, 0.012, 6, 16), '#d99a2e', 0, 0.47, 0.335));
-      parts.push(p(sphere(0.016, 8, 6), '#e8434d', 0, 0.47, 0.346));
+      parts.push(p(sphere(0.15, 14, 10), P.apron, 0, 0.44, 0.3, { sx: 1.2, sy: 1.28, sz: 0.42, mat: 'soft' }));
+      parts.push(p(cyl(0.42, 0.5, 0.24, 18, true), P.apron, 0, 0.16, 0.03, { sz: 0.9, mat: 'shell' }));
+      parts.push(p(torus(0.418, 0.026, 6, 22), P.apronTrim, 0, 0.05, 0.03, { rx: Math.PI / 2, sz: 0.9 }));
+      parts.push(p(capsule(0.026, 0.18), P.apron, -0.15, 0.58, 0.27, { rx: -0.2, rz: -0.42 }));
+      parts.push(p(capsule(0.026, 0.18), P.apron, 0.15, 0.58, 0.27, { rx: -0.2, rz: 0.42 }));
+      parts.push(p(torus(0.062, 0.022, 6, 12), P.apronTrim, 0, 0.4, -0.4, { rz: 0.5 }));
+      parts.push(p(torus(0.062, 0.022, 6, 12), P.apronTrim, 0, 0.4, -0.4, { rz: -0.5 }));
+      parts.push(p(cyl(0.055, 0.055, 0.02, 14), P.gold, 0, 0.46, 0.375, { rx: Math.PI / 2, mat: 'soft' }));
+      parts.push(p(torus(0.055, 0.013, 6, 16), '#d99a2e', 0, 0.46, 0.38));
+      parts.push(p(sphere(0.018, 8, 6), '#e8434d', 0, 0.46, 0.393));
     }
-    // feet
-    const fy = sit ? 0.02 : 0.0, fz = sit ? 0.34 : 0.14;
+    // stubby hind legs and big flat feet
+    const fz = sit ? 0.3 : 0.1;
     for (const sx of [-1, 1]) {
-      parts.push(p(capsule(0.035, sit ? 0.2 : 0.1), O, sx * 0.12, fy + (sit ? 0.16 : 0.09), fz - (sit ? 0.12 : 0), { rx: sit ? 1.15 : 0 }));
-      parts.push(p(roundedBox(0.15, 0.045, 0.2, 0.022), O, sx * 0.12, fy + 0.022, fz + (sit ? 0.02 : 0.03)));
-      parts.push(p(roundedBox(0.03, 0.03, 0.06, 0.014), OD, sx * 0.12, fy + 0.022, fz + (sit ? 0.11 : 0.12)));
+      parts.push(p(capsule(0.085, sit ? 0.14 : 0.06), F, sx * 0.17, sit ? 0.2 : 0.14, fz, { rx: sit ? 1.1 : 0, mat: 'soft' }));
+      parts.push(p(sphere(0.115, 10, 7), FD, sx * 0.17, 0.055, fz + (sit ? 0.06 : 0.05), { sy: 0.6, sz: 1.25, mat: 'soft' }));
+      for (let i = -1; i <= 1; i++) parts.push(p(sphere(0.022, 6, 5), P.claw, sx * 0.17 + i * 0.042, 0.05, fz + (sit ? 0.16 : 0.15), { sz: 1.5 }));
     }
-    const body = build(parts);
-    g.add(body);
+    bodyG.add(build(parts));
+    g.add(bodyG);
 
-    // head
-    const head = new THREE.Group(); head.position.set(0, 0.72, 0.02);
+    // head — broad, low-slung, with a wide nose
+    const head = new THREE.Group(); head.position.set(0, 0.66, 0.16);
     const hp = [];
-    hp.push(p(sphere(0.21, 14, 10), D, 0, 0, 0, { sy: 0.98, mat: 'soft' }));
-    hp.push(p(sphere(0.13, 10, 8), D, 0, -0.12, -0.03, { sy: 0.9, mat: 'soft' })); // cheeks/jowl
-    // beak
-    hp.push(p(roundedBox(0.17, 0.07, 0.19, 0.033), O, 0, -0.015, 0.19, { rx: 0.06 }));
-    hp.push(p(roundedBox(0.14, 0.04, 0.15, 0.019), OD, 0, -0.055, 0.185, { rx: 0.06 }));
-    hp.push(p(sphere(0.012, 6, 4), OD, -0.035, 0.015, 0.26));
-    hp.push(p(sphere(0.012, 6, 4), OD, 0.035, 0.015, 0.26));
+    hp.push(p(sphere(0.25, 14, 10), F, 0, 0, 0, { sx: 1.1, sy: 0.9, sz: 1.0, mat: 'soft' }));
+    hp.push(p(sphere(0.17, 12, 8), FL, 0, -0.05, 0.16, { sx: 1.0, sy: 0.78, sz: 0.7, mat: 'soft' }));
+    // muzzle + big flat nose
+    hp.push(p(sphere(0.13, 12, 8), FL, 0, -0.045, 0.2, { sx: 1.05, sy: 0.8, sz: 0.85, mat: 'soft' }));
+    hp.push(p(roundedBox(0.15, 0.085, 0.06, 0.032), N, 0, -0.025, 0.3, { mat: 'shiny' }));
+    hp.push(p(sphere(0.016, 6, 5), '#1a1412', -0.04, -0.03, 0.335));
+    hp.push(p(sphere(0.016, 6, 5), '#1a1412', 0.04, -0.03, 0.335));
+    hp.push(p(roundedBox(0.012, 0.05, 0.02, 0.005), '#3a2f2a', 0, -0.085, 0.29));
     // simple dot eyes
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.042, 10, 8), P.eye, sx * 0.088, 0.055, 0.178, { sz: 0.55, mat: 'matte' }));
-      hp.push(p(sphere(0.04, 8, 6), P.blush, sx * 0.158, -0.005, 0.132, { sz: 0.32, sy: 0.68 }));
+      hp.push(p(sphere(0.038, 10, 8), P.eye, sx * 0.115, 0.055, 0.2, { sz: 0.6, mat: 'matte' }));
+      hp.push(p(sphere(0.045, 8, 6), P.blush, sx * 0.19, -0.015, 0.14, { sz: 0.32, sy: 0.62 }));
+      // round wombat ears
+      hp.push(p(sphere(0.075, 10, 8), F, sx * 0.16, 0.17, -0.04, { sz: 0.45, mat: 'soft' }));
+      hp.push(p(sphere(0.048, 8, 6), P.blush, sx * 0.168, 0.17, -0.02, { sz: 0.3, mat: 'soft' }));
     }
     head.add(build(hp));
-    // helicopter beanie: four felt panels, a rim, a stalk and a propeller
-    const hat = new THREE.Group(); hat.position.set(0, 0.168, -0.02);
+    // helicopter beanie
+    const hat = new THREE.Group(); hat.position.set(0, 0.145, -0.03);
     const cols = [P.hatA, P.hatB, P.hatC, P.hatD];
     const hpr = [];
-    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.183, 8, 6, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.82, mat: 'soft' }));
-    hpr.push(p(torus(0.182, 0.024, 6, 20), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2 }));
-    hpr.push(p(cyl(0.018, 0.024, 0.08, 8), '#c8ccd8', 0, 0.185, 0, { mat: 'shiny' }));
+    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.19, 8, 6, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, mat: 'soft' }));
+    hpr.push(p(torus(0.189, 0.024, 6, 20), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2 }));
+    hpr.push(p(cyl(0.018, 0.024, 0.08, 8), '#c8ccd8', 0, 0.17, 0, { mat: 'shiny' }));
     hat.add(build(hpr));
     head.add(hat);
-    const prop = new THREE.Group(); prop.position.set(0, 0.372, -0.018);
+    const prop = new THREE.Group(); prop.position.set(0, 0.345, -0.03);
     const pp = [p(sphere(0.032, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
     for (const sx of [-1, 1]) pp.push(p(roundedBox(0.19, 0.014, 0.05, 0.007), P.prop, sx * 0.112, 0.004, 0, { rz: sx * 0.2, ry: sx * 0.14, mat: 'shiny' }));
     prop.add(build(pp));
     head.add(prop);
     g.add(head);
 
-    // big wings — flat blades that work as the duck's steering surfaces
-    const wings = [];
-    const bigW = opts.bigWings !== false;
+    // short thick arms with claws — these do the steering
+    const arms = [];
     for (const sx of [-1, 1]) {
-      const w = new THREE.Group(); w.position.set(sx * 0.2, 0.46, -0.02);
-      const wp = [];
-      if (bigW) {
-        // the blade reaches outward from the shoulder: long, thin, tapered
-        wp.push(p(sphere(0.2, 12, 8), D, sx * 0.2, -0.01, -0.01, { sx: 1.15, sy: 0.19, sz: 0.72, mat: 'soft' }));
-        wp.push(p(sphere(0.14, 10, 7), D, sx * 0.42, -0.03, -0.05, { sx: 1.0, sy: 0.2, sz: 0.62, mat: 'soft' }));
-        wp.push(p(sphere(0.1, 8, 6), DS, sx * 0.08, 0.01, 0.04, { sx: 1.0, sy: 0.5, sz: 0.9, mat: 'soft' }));
-        // primaries fanning back off the tip
-        for (let i = 0; i < 4; i++) {
-          const a = 0.12 + i * 0.2;
-          wp.push(p(cone(0.036, 0.26, 5), i % 2 ? DS : D, sx * (0.52 + i * 0.01), -0.045, -0.06 - i * 0.02,
-            { rz: sx * (Math.PI / 2 - a * 0.4), rx: -a, sy: 1, sz: 1.5, mat: 'soft' }));
-        }
-      } else {
-        wp.push(p(sphere(0.13, 10, 8), D, 0, -0.06, 0, { sx: 0.4, sy: 1.0, sz: 1.25, mat: 'soft' }));
-        wp.push(p(sphere(0.09, 8, 6), DS, 0, -0.17, -0.03, { sx: 0.36, sy: 0.8, sz: 1.0, mat: 'soft' }));
-      }
-      w.add(build(wp));
-      g.add(w); wings.push(w);
+      const a = new THREE.Group(); a.position.set(sx * 0.3, 0.44, 0.06);
+      a.add(build([
+        p(capsule(0.095, 0.16), F, sx * 0.09, -0.02, 0, { rz: sx * 1.15, mat: 'soft' }),
+        p(sphere(0.105, 10, 8), FD, sx * 0.21, -0.05, 0.02, { mat: 'soft' }),
+        ...[-1, 0, 1].map((i) => p(sphere(0.024, 6, 5), P.claw, sx * 0.27, -0.05 + i * 0.045, 0.07, { sz: 1.4 })),
+      ]));
+      g.add(a); arms.push(a);
     }
-    // lollipop — carried in the beak, so it reads from every angle
+    // lollipop, held in the mouth
     let lolli = null;
     if (opts.lollipop !== false) {
       lolli = new THREE.Group();
@@ -204,12 +207,13 @@ FW.Models = (() => {
       const rim = new THREE.Mesh(torus(0.085, 0.016, 6, 20), FW.Pixel.mat(P.candy, { roughness: 0.22 }));
       rim.position.y = 0.235;
       lolli.add(candy, rim);
-      if (opts.lollipop === 'wing') { lolli.position.set(0.02, -0.24, 0.06); lolli.rotation.set(0.3, 0, -0.35); wings[1].add(lolli); }
-      else { lolli.position.set(0.115, -0.125, 0.19); lolli.rotation.set(-0.5, 0, -0.95); head.add(lolli); }
+      lolli.position.set(0.115, -0.1, 0.25); lolli.rotation.set(-0.5, 0, -0.95);
+      head.add(lolli);
     }
-    g.userData = { head, wings, prop, lolli, body, tail: head };
+    g.userData = { head, arms, wings: arms, prop, lolli, body: bodyG, hat };
     return g;
   }
+  const duck = hero;   // the old name, kept so nothing downstream breaks
 
   // ---------- scooter ----------
   function scooter() {
@@ -352,93 +356,92 @@ FW.Models = (() => {
     return g;
   }
 
-  // ---------- vegetation: a tall, dark North American conifer forest ----------
-  // Geometries are metres at scale 1 and get instanced in chunks by the world.
-  const FOL = { firA: '#2b5c41', firB: '#33694a', firC: '#3d7757', pineA: '#376d4a', pineB: '#427c58', cedar: '#265239', oak: '#4c7f44', seq: '#306849' };
-  const BARK = { fir: '#5a4636', pine: '#95693f', cedar: '#5c4633', oak: '#6a5643', seq: '#9c5433', snag: '#a89e93' };
+  // ---------- vegetation: cut-out foliage cards on the shared atlas ----------
+  // Every tree is a trunk plus a handful of textured cards, so a whole forest
+  // chunk draws in one call and the canopy reads as leaves rather than blobs.
+  const FOL = { firA: '#2f6244', firB: '#39705000', firC: '#3d7757', pineA: '#3a7350', pineB: '#46815c', cedar: '#2a583e', oak: '#547f45', seq: '#356d4c' };
+  FOL.firB = '#397050';
+  const BARK = { fir: '#54402f', pine: '#8f6238', cedar: '#573f2c', oak: '#63513e', seq: '#9c5433', snag: '#a49a8e' };
+  const card = (w, h, color, x, y, z, a, o = {}) => p(quad(w, h), color, x, y, z, Object.assign({ ry: a, uv: o.cell || 'needle', mat: 'leafy' }, o));
 
-  // Douglas fir: a tall narrow spire, the backbone of the forest
-  const firGeo = () => {
-    const parts = [p(cyl(0.2, 0.46, 17, 6), BARK.fir, 0, 8.5, 0)];
-    const layers = [[2.6, 3.4, 3.6], [5.4, 3.2, 3.0], [8.1, 3.0, 2.4], [10.7, 2.8, 1.8], [13.1, 2.6, 1.25], [15.3, 2.4, 0.7]];
-    layers.forEach(([y, h, r], i) => parts.push(p(cone(r, h, 6), i % 3 === 0 ? FOL.firA : i % 3 === 1 ? FOL.firB : FOL.firC, 0, y + h / 2, 0)));
-    return geoOf(parts);
+  function conifer(trunkH, trunkR, layers, cols, bark) {
+    const parts = [p(cyl(trunkR * 0.45, trunkR, trunkH, 6), bark, 0, trunkH / 2, 0, { uv: 'solid', mat: 'leafy' })];
+    layers.forEach(([y, r, h], li) => {
+      const n = r > 1.6 ? 5 : 4;
+      for (let j = 0; j < n; j++) {
+        const a = (j / n) * Math.PI * 2 + li * 0.62;
+        parts.push(card(r * 1.3, h * 1.05, cols[(li + j) % cols.length], Math.sin(a) * r * 0.5, y + h * 0.42, Math.cos(a) * r * 0.5, a, { rx: -0.1 }));
+      }
+    });
+    return geoOf(parts, 'leafy');
+  }
+  const firGeo = () => conifer(17, 0.44, [[1.9, 3.4, 3.4], [4.4, 3.0, 3.2], [6.9, 2.6, 3.0], [9.2, 2.2, 2.7], [11.3, 1.7, 2.4], [13.2, 1.25, 2.1], [14.9, 0.8, 1.8]],
+    [FOL.firA, FOL.firB, FOL.firC], BARK.fir);
+  const pineGeo = () => conifer(16, 0.5, [[10.6, 2.6, 3.2], [12.8, 2.3, 3.0], [14.6, 1.6, 2.6], [16.0, 0.9, 2.2]],
+    [FOL.pineA, FOL.pineB, FOL.firC], BARK.pine);
+  const cedarGeo = () => conifer(12.5, 0.5, [[1.4, 2.5, 3.0], [3.6, 2.4, 3.0], [5.8, 2.1, 2.9], [7.9, 1.7, 2.7], [9.8, 1.2, 2.4], [11.4, 0.7, 2.0]],
+    [FOL.cedar, FOL.firA, FOL.firB], BARK.cedar);
+  const sequoiaGeo = () => {
+    const parts = [
+      p(cyl(0.95, 2.0, 23, 8), BARK.seq, 0, 11.5, 0, { uv: 'solid', mat: 'leafy' }),
+      p(cyl(2.0, 3.0, 3, 8), BARK.seq, 0, 1.5, 0, { uv: 'solid', mat: 'leafy' }),
+    ];
+    [[19.5, 4.2, 5.4], [23.4, 3.6, 5.0], [26.6, 2.6, 4.4], [29.2, 1.5, 3.6]].forEach(([y, r, h], li) => {
+      for (let j = 0; j < 5; j++) { const a = (j / 5) * Math.PI * 2 + li * 0.6; parts.push(card(r * 1.35, h * 1.05, [FOL.seq, FOL.firB, FOL.firC][(li + j) % 3], Math.sin(a) * r * 0.5, y + h * 0.4, Math.cos(a) * r * 0.5, a, { rx: -0.1 })); }
+    });
+    return geoOf(parts, 'leafy');
   };
-  // Ponderosa pine: long clean trunk, canopy only up top
-  const pineGeo = () => geoOf([
-    p(cyl(0.26, 0.5, 15, 6), BARK.pine, 0, 7.5, 0),
-    p(sphere(2.5, 7, 4), FOL.pineA, 0, 14.2, 0, { sy: 0.62 }),
-    p(sphere(2.0, 6, 4), FOL.pineB, 1.4, 15.6, 0.5, { sy: 0.62 }),
-    p(sphere(1.8, 6, 4), FOL.pineA, -1.5, 15.3, -0.4, { sy: 0.62 }),
-    p(cone(1.3, 2.6, 6), FOL.pineB, 0, 17.6, 0),
-  ]);
-  // Incense cedar: dense dark column
-  const cedarGeo = () => {
-    const parts = [p(cyl(0.24, 0.55, 12, 6), BARK.cedar, 0, 6, 0)];
-    for (let i = 0; i < 5; i++) { const y = 1.8 + i * 2.3, r = 2.5 - i * 0.4; parts.push(p(cone(r, 3.2, 6), i % 2 ? FOL.cedar : FOL.firA, 0, y + 1.6, 0)); }
-    return geoOf(parts);
-  };
-  const sequoiaGeo = () => geoOf([
-    p(cyl(0.9, 2.1, 22, 8), BARK.seq, 0, 11, 0),
-    p(cyl(2.1, 3.1, 3, 8), BARK.seq, 0, 1.5, 0),
-    p(sphere(3.6, 8, 5), FOL.seq, 0, 23.5, 0, { sy: 0.66 }),
-    p(sphere(2.9, 7, 4), FOL.firB, 2.2, 25.6, 0.8, { sy: 0.66 }),
-    p(sphere(2.7, 6, 4), FOL.seq, -2.3, 25.2, -0.7, { sy: 0.66 }),
-    p(cone(2.0, 4.4, 7), FOL.firC, 0, 28.6, 0),
-  ]);
-  // California black oak: broad round canopy on the valley floor
-  const oakGeo = (gold) => geoOf([
-    p(cyl(0.3, 0.55, 4.6, 6), BARK.oak, 0, 2.3, 0),
-    p(cyl(0.1, 0.16, 1.6, 5), BARK.oak, 0.9, 4.6, 0.2, { rz: -0.75 }),
-    p(cyl(0.1, 0.16, 1.6, 5), BARK.oak, -0.9, 4.7, -0.3, { rz: 0.8 }),
-    p(sphere(2.5, 8, 5), gold ? '#c1953f' : FOL.oak, 0, 6.4, 0, { sy: 0.82 }),
-    p(sphere(1.9, 7, 4), gold ? '#d2ab52' : '#55884c', 1.7, 7.1, 0.7, { sy: 0.8 }),
-    p(sphere(1.8, 6, 4), gold ? '#b08838' : '#406b42', -1.8, 6.9, -0.6, { sy: 0.8 }),
-  ]);
-  // dead standing snag — reads as old-growth forest
-  const snagGeo = () => geoOf([
-    p(cyl(0.18, 0.44, 11, 5), BARK.snag, 0, 5.5, 0),
-    p(cyl(0.07, 0.11, 1.5, 4), BARK.snag, 0.75, 7.4, 0.1, { rz: -0.9 }),
-    p(cyl(0.06, 0.09, 1.1, 4), BARK.snag, -0.6, 8.6, -0.2, { rz: 1.0 }),
-    p(cone(0.3, 0.9, 5), BARK.snag, 0, 11.4, 0),
-  ]);
-  // fallen log with a root plate
-  const deadfallGeo = () => geoOf([
-    p(cyl(0.42, 0.5, 7.5, 7), BARK.fir, 0, 0.46, 0, { rz: Math.PI / 2 }),
-    p(sphere(0.85, 6, 4), '#3d3026', -3.9, 0.6, 0, { sx: 0.4 }),
-    p(sphere(0.5, 6, 4), '#4c8a60', 0.6, 0.85, 0.1, { sy: 0.42 }),
-    p(sphere(0.42, 6, 4), FOL.firB, -1.4, 0.82, -0.15, { sy: 0.42 }),
-  ]);
-  // sword ferns on the forest floor
-  const fernGeo = () => {
-    const parts = [];
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.3;
-      parts.push(p(cone(0.16, 0.8, 4), i % 2 ? '#3c7a58' : '#488a63', Math.cos(a) * 0.2, 0.36, Math.sin(a) * 0.2,
-        { rx: Math.sin(a) * 0.7, rz: -Math.cos(a) * 0.7, sx: 0.5, sz: 0.85 }));
+  // California black oak — broad crown of leaf cards
+  const oakGeo = (gold) => {
+    const c = gold ? ['#c1953f', '#d2ab52', '#b0863a'] : [FOL.oak, '#5f8c4c', '#48753e'];
+    const parts = [
+      p(cyl(0.3, 0.55, 4.8, 6), BARK.oak, 0, 2.4, 0, { uv: 'solid', mat: 'leafy' }),
+      p(cyl(0.1, 0.17, 1.8, 5), BARK.oak, 0.85, 4.7, 0.2, { rz: -0.8, uv: 'solid', mat: 'leafy' }),
+      p(cyl(0.1, 0.17, 1.8, 5), BARK.oak, -0.85, 4.8, -0.3, { rz: 0.85, uv: 'solid', mat: 'leafy' }),
+    ];
+    for (let j = 0; j < 6; j++) {
+      const a = (j / 6) * Math.PI * 2, r = 1.5;
+      parts.push(card(3.0, 2.6, c[j % 3], Math.sin(a) * r, 6.3, Math.cos(a) * r, a, { cell: 'leaf' }));
     }
-    return geoOf(parts);
+    parts.push(card(2.8, 2.2, c[0], 0, 7.6, 0, 0.5, { cell: 'leaf', rx: -1.35 }));
+    parts.push(card(2.5, 2.0, c[1], 0.3, 7.8, -0.2, 1.9, { cell: 'leaf', rx: -1.2 }));
+    return geoOf(parts, 'leafy');
   };
+  const snagGeo = () => geoOf([
+    p(cyl(0.18, 0.44, 11, 5), BARK.snag, 0, 5.5, 0, { uv: 'solid', mat: 'leafy' }),
+    p(cyl(0.07, 0.11, 1.5, 4), BARK.snag, 0.75, 7.4, 0.1, { rz: -0.9, uv: 'solid', mat: 'leafy' }),
+    p(cyl(0.06, 0.09, 1.1, 4), BARK.snag, -0.6, 8.6, -0.2, { rz: 1.0, uv: 'solid', mat: 'leafy' }),
+    p(cone(0.3, 0.9, 5), BARK.snag, 0, 11.4, 0, { uv: 'solid', mat: 'leafy' }),
+  ], 'leafy');
+  const deadfallGeo = () => geoOf([
+    p(cyl(0.42, 0.5, 7.5, 7), BARK.fir, 0, 0.46, 0, { rz: Math.PI / 2, uv: 'solid', mat: 'leafy' }),
+    p(sphere(0.85, 6, 4), '#3d3026', -3.9, 0.6, 0, { sx: 0.4, uv: 'solid', mat: 'leafy' }),
+    card(1.5, 1.0, '#4c8a60', 0.6, 1.05, 0.1, 0.4, { cell: 'grass' }),
+    card(1.3, 0.9, FOL.firB, -1.4, 1.0, -0.15, 1.9, { cell: 'grass' }),
+  ], 'leafy');
+  // ferns, grass tufts and meadow flowers: two crossed cards each
+  const cross = (w, h, cols, cell, tilt = 0) => geoOf([
+    card(w, h, cols[0], 0, h * 0.46, 0, 0, { cell, rx: tilt }),
+    card(w, h, cols[1] || cols[0], 0, h * 0.46, 0, Math.PI / 2, { cell, rx: tilt }),
+  ], 'leafy');
+  const fernGeo = () => cross(1.5, 0.95, ['#3c7a58', '#4a8a64'], 'grass');
+  const grassGeo = () => cross(1.0, 0.62, ['#6faa4e', '#7cb85a'], 'grass');
   const bushGeo = () => geoOf([
-    p(sphere(0.66, 7, 5), '#3a6f4e', 0, 0.44, 0, { sy: 0.78 }),
-    p(sphere(0.48, 6, 4), '#437c58', 0.44, 0.38, 0.22, { sy: 0.78 }),
-    p(sphere(0.42, 6, 4), '#2f6244', -0.42, 0.36, -0.22, { sy: 0.78 }),
-  ]);
+    card(1.9, 1.5, '#3a6f4e', 0, 0.68, 0, 0, { cell: 'leaf' }),
+    card(1.9, 1.5, '#437c58', 0, 0.68, 0, 1.05, { cell: 'leaf' }),
+    card(1.6, 1.2, '#2f6244', 0, 0.62, 0, 2.1, { cell: 'leaf' }),
+  ], 'leafy');
   const rockGeo = () => geoOf([
     p(blob(0.85, 0), P.granite[0], 0, 0.45, 0, { sy: 0.75, sz: 0.9 }),
     p(blob(0.5, 0), P.granite[1], 0.55, 0.3, 0.25, { sy: 0.8 }),
     p(blob(0.35, 0), P.granite[2], -0.5, 0.22, -0.3),
   ]);
-  const flowerGeo = () => {
-    const parts = [];
-    const cols = ['#ffb3b3', '#fff6a8', '#c9a0f0', '#ffffff', '#ff8fa3'];
-    for (let i = 0; i < 3; i++) {
-      const a = i * 2.09, r = 0.12 + (i % 2) * 0.1, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      parts.push(p(cyl(0.012, 0.016, 0.22, 4), '#4f9a5c', x, 0.11, z));
-      parts.push(p(sphere(0.075, 6, 4), cols[i], x, 0.25, z, { sy: 0.55 }));
-    }
-    return geoOf(parts);
-  };
+  const flowerGeo = () => geoOf([
+    card(0.8, 0.5, '#7cb85a', 0, 0.24, 0, 0, { cell: 'grass' }),
+    card(0.8, 0.5, '#6faa4e', 0, 0.24, 0, 1.57, { cell: 'grass' }),
+    p(sphere(0.06, 6, 4), '#ffd9e2', 0.12, 0.42, 0.06, { uv: 'solid', mat: 'leafy' }),
+    p(sphere(0.055, 6, 4), '#fff2a8', -0.13, 0.38, -0.05, { uv: 'solid', mat: 'leafy' }),
+  ], 'leafy');
   const mushroomGeo = () => geoOf([
     p(cyl(0.16, 0.22, 0.5, 9), '#fff3dc', 0, 0.25, 0),
     p(sphere(0.62, 12, 8, { thetaL: Math.PI / 2 }), P.red, 0, 0.46, 0, { sy: 0.85 }),
@@ -452,13 +455,35 @@ FW.Models = (() => {
     p(capsule(0.055, len - 0.5), P.wood2, 0, 0.42, 0, { rz: Math.PI / 2 }),
     p(capsule(0.055, len - 0.5), P.wood2, 0, 0.78, 0, { rz: Math.PI / 2 }),
   ]);
-  // steel W-beam highway guardrail — grindable, and very Yosemite roadside
   const guardrailGeo = (len = 4) => geoOf([
     p(roundedBox(len, 0.3, 0.07, 0.03), '#b8bec9', 0, 0.72, 0, { mat: 'metal' }),
     p(roundedBox(len, 0.09, 0.11, 0.035), '#98a0ac', 0, 0.72, 0.02, { mat: 'metal' }),
     p(roundedBox(0.11, 0.78, 0.11, 0.03), '#8d949f', -len / 2 + 0.2, 0.39, -0.03, { mat: 'metal' }),
     p(roundedBox(0.11, 0.78, 0.11, 0.03), '#8d949f', len / 2 - 0.2, 0.39, -0.03, { mat: 'metal' }),
   ]);
+
+  // ---------- roadside signage ----------
+  function roadSign(kind, text, opts = {}) {
+    const g = new THREE.Group();
+    const h = opts.height || 2.1, w = opts.size || 1.0;
+    g.add(build([
+      p(cyl(0.045, 0.05, h, 6), '#9aa0aa', 0, h / 2, 0, { mat: 'metal' }),
+      p(cyl(0.1, 0.12, 0.16, 6), '#6f6a62', 0, 0.06, 0),
+    ]));
+    const tex = FW.Pixel.signTexture(kind, text);
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, w), new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.12, envMapIntensity: 1.1 }));
+    panel.position.set(0, h + w * 0.36, 0.03); panel.castShadow = true;
+    g.add(panel);
+    g.userData = { panel };
+    return g;
+  }
+  function mileMarker(text) {
+    const g = new THREE.Group();
+    g.add(build([p(roundedBox(0.16, 1.1, 0.05, 0.02), '#e8e4d8', 0, 0.55, 0, { mat: 'soft' })]));
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.5), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture(text, { w: 128, h: 200, bg: '#2c5c3a', fg: '#f0eee8', font: 'bold 64px monospace', border: '#f0eee8', radius: 8 }), transparent: true, side: THREE.DoubleSide }));
+    s.position.set(0, 0.72, 0.04); g.add(s);
+    return g;
+  }
 
   // ---------- cars ----------
   const CAR_KINDS = {
@@ -714,7 +739,7 @@ FW.Models = (() => {
   }
 
   return { p, build, geoOf, mergeParts, roundedBox, sphere, capsule, cyl, cone, torus, blob, shade,
-    duck, scooter, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
-    firGeo, pineGeo, cedarGeo, sequoiaGeo, oakGeo, snagGeo, deadfallGeo, fernGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo, guardrailGeo, car, CAR_KINDS,
+    hero, duck, scooter, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
+    firGeo, pineGeo, cedarGeo, sequoiaGeo, oakGeo, snagGeo, deadfallGeo, fernGeo, grassGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo, guardrailGeo, roadSign, mileMarker, quad, card, car, CAR_KINDS,
     shack, cabin, rangerStation, tent, campfire, picnicTable, signpost, marker, token, airRing, arrowSign };
 })();

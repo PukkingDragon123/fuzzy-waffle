@@ -81,13 +81,18 @@ FW.Input = (() => {
   window.addEventListener('touchend', () => (mouse.down = false));
   const anyDown = (codes) => codes.some((c) => down.has(c));
   const anyPressed = (codes) => codes.some((c) => pressed.has(c));
+  // on-screen controls feed the same actions as the keyboard
+  const virtual = { steer: 0, throttle: 0 };
+  const vHeld = new Set(), vPressed = new Set();
   return {
-    mouse,
-    held: (name) => anyDown(MAP[name]),
-    pressed: (name) => anyPressed(MAP[name]),
-    axis: () => (anyDown(MAP.right) ? 1 : 0) - (anyDown(MAP.left) ? 1 : 0),
-    throttle: () => (anyDown(MAP.up) ? 1 : 0) - (anyDown(MAP.down) ? 1 : 0),
-    endFrame() { pressed.clear(); mouse.clicked = false; mouse.moved = false; },
-    clear() { down.clear(); pressed.clear(); },
+    mouse, virtual,
+    held: (name) => anyDown(MAP[name]) || vHeld.has(name),
+    pressed: (name) => anyPressed(MAP[name]) || vPressed.has(name),
+    axis() { const k = (anyDown(MAP.right) ? 1 : 0) - (anyDown(MAP.left) ? 1 : 0); return k || virtual.steer; },
+    throttle() { const k = (anyDown(MAP.up) ? 1 : 0) - (anyDown(MAP.down) ? 1 : 0); return k || virtual.throttle; },
+    setHeld(name, on) { if (on) { if (!vHeld.has(name)) vPressed.add(name); vHeld.add(name); } else vHeld.delete(name); },
+    press(name) { vPressed.add(name); },
+    endFrame() { pressed.clear(); vPressed.clear(); mouse.clicked = false; mouse.moved = false; },
+    clear() { down.clear(); pressed.clear(); vHeld.clear(); vPressed.clear(); virtual.steer = 0; virtual.throttle = 0; },
   };
 })();
