@@ -24,9 +24,9 @@ FW.World = (() => {
   let customer = null, marker = null, chimneys = [], minimap = null;
 
   const timeStops = [
-    { zen: '#5c93c9', hor: '#e8d3b4', sun: '#ffeacb', sunI: 3.1, hemiSky: '#b6cfe4', hemiGnd: '#6a6650', fog: '#cbd3d4', amb: 0.5 },
-    { zen: '#437fbe', hor: '#c4d8e6', sun: '#fff6e6', sunI: 3.5, hemiSky: '#c2d8ea', hemiGnd: '#77735a', fog: '#c2d2da', amb: 0.62 },
-    { zen: '#3c3f6b', hor: '#e0956a', sun: '#ffb277', sunI: 2.4, hemiSky: '#b9a8c9', hemiGnd: '#4e4c3e', fog: '#c9a58c', amb: 0.42 },
+    { zen: '#6ba0cf', hor: '#f0dcbe', sun: '#ffe6bf', sunI: 2.8, hemiSky: '#c6dcef', hemiGnd: '#7d7358', fog: '#d5dad6', amb: 0.95 },
+    { zen: '#5490c9', hor: '#d6e4ec', sun: '#fff3dd', sunI: 3.0, hemiSky: '#cfe1f0', hemiGnd: '#877f62', fog: '#ccd8dc', amb: 1.08 },
+    { zen: '#4a4573', hor: '#e8a475', sun: '#ffbd85', sunI: 2.2, hemiSky: '#c4b3d0', hemiGnd: '#5c5645', fog: '#d0ac93', amb: 0.82 },
   ];
 
   // ---------------- terrain ----------------
@@ -849,7 +849,7 @@ FW.World = (() => {
     fill = new THREE.DirectionalLight('#8ea6c2', 0.34); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
     hemi = new THREE.HemisphereLight(0xa9c2da, 0x5f5648, 0.62); scene.add(hemi);
     // denser, warmer haze so distance falls away instead of staying crisp
-    scene.fog = new THREE.FogExp2(0xa8aa9c, 0.0062);
+    scene.fog = new THREE.FogExp2(0xc4cbc4, 0.0038);
     scene.environment = FW.Pixel.envOutdoor;
     for (let i = 0; i < 14; i++) {
       const g = new THREE.Group(), n = 3 + Math.floor(rand() * 3);

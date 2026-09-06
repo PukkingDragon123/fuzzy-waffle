@@ -175,23 +175,35 @@ body.touch-ui #hint{bottom:calc(176px + env(safe-area-inset-bottom));max-width:m
 #panel .big{font-weight:800;font-size:24px;color:var(--line);margin-top:6px}
 #panel .coins{color:#c98a1e;font-weight:800}
 #panel .quote{font-style:italic;color:#7a5a3e;margin:6px 0}
-/* title */
-#title{inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;pointer-events:auto;overflow:auto;padding:24px 16px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;
-  background:radial-gradient(ellipse at 50% 38%,rgba(20,14,9,.30),rgba(12,8,5,.86))}
-#title .logo{text-align:center;line-height:.92;animation:bob 2.6s ease-in-out infinite;font-weight:800}
+/* title — a compact cozy card, off to one side so the drive stays visible */
+#title{inset:0;display:flex;align-items:flex-end;justify-content:flex-start;pointer-events:auto;overflow:auto;
+  padding:clamp(16px,4vw,54px) clamp(16px,4vw,54px) calc(clamp(16px,4vw,54px) + env(safe-area-inset-bottom));box-sizing:border-box;
+  background:linear-gradient(105deg,rgba(14,10,7,.86) 0%,rgba(14,10,7,.66) 38%,rgba(14,10,7,.12) 66%,rgba(14,10,7,.05) 100%)}
+#title .card{display:flex;flex-direction:column;align-items:flex-start;gap:13px;max-width:min(460px,92vw)}
+#title .logo{text-align:left;line-height:.9;font-weight:800}
 #title .logo span{display:block}
-#title .w1{font-size:clamp(34px,7vw,68px);color:var(--gold);letter-spacing:.03em;
-  text-shadow:0 2px 10px rgba(0,0,0,.8),0 0 34px rgba(215,165,74,.22);transform:none}
-#title .w2{font-size:clamp(44px,9vw,94px);color:var(--cream);letter-spacing:.02em;
-  text-shadow:0 3px 14px rgba(0,0,0,.85),0 0 44px rgba(239,227,207,.16);transform:none}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-#title .tag{font-size:19px;font-weight:500;color:rgba(239,227,207,.78);text-shadow:0 2px 8px rgba(0,0,0,.7);text-align:center;
-  padding:8px 22px;background:rgba(18,13,9,.5);border:1px solid rgba(214,190,150,.12);border-radius:6px;backdrop-filter:blur(4px)}
-#title .controls{font-size:16px;color:rgba(232,220,200,.72);text-shadow:0 2px 8px rgba(0,0,0,.7);text-align:center;max-width:740px;
-  padding:14px 26px;line-height:1.7;background:rgba(18,13,9,.5);border:1px solid rgba(214,190,150,.10);border-radius:8px;backdrop-filter:blur(4px);
-  display:flex;flex-direction:column;gap:6px}
-#title .controls b{color:var(--gold)}
-#title .save{font-size:16px;font-weight:600;color:var(--mint);text-shadow:0 2px 8px rgba(0,0,0,.7)}
+#title .w1{font-size:clamp(26px,4.6vw,40px);color:var(--gold);letter-spacing:.05em;
+  text-shadow:0 2px 10px rgba(0,0,0,.85)}
+#title .w2{font-size:clamp(38px,7vw,68px);color:var(--cream);letter-spacing:.02em;
+  text-shadow:0 3px 14px rgba(0,0,0,.9)}
+#title .tag{font-size:clamp(14px,1.6vw,17px);font-weight:500;color:rgba(239,227,207,.8);
+  text-shadow:0 2px 8px rgba(0,0,0,.85)}
+#title .save{font-size:14px;font-weight:600;color:var(--mint);text-shadow:0 2px 8px rgba(0,0,0,.85)}
+#title .help{font-size:13px;color:rgba(232,220,200,.68);max-width:100%;
+  background:rgba(18,13,9,.62);border:1px solid rgba(214,190,150,.14);border-radius:8px;
+  padding:8px 14px;backdrop-filter:blur(5px)}
+#title .help summary{cursor:pointer;font-weight:700;color:var(--gold);letter-spacing:.03em;list-style:none}
+#title .help summary::-webkit-details-marker{display:none}
+#title .help summary::before{content:'▸ ';opacity:.7}
+#title .help[open] summary::before{content:'▾ '}
+#title .help div{margin-top:7px;line-height:1.55}
+#title .help b{color:rgba(244,236,222,.92)}
+@media (max-width:640px){
+  #title{align-items:flex-end;justify-content:center;
+    background:linear-gradient(180deg,rgba(14,10,7,.10) 0%,rgba(14,10,7,.55) 52%,rgba(14,10,7,.9) 100%)}
+  #title .card{align-items:center;text-align:center}
+  #title .logo{text-align:center}
+}
 /* mess counter */
 #mess{left:18px;bottom:18px;display:flex;align-items:center;gap:8px;background:var(--map-paper);
   border-radius:999px;padding:6px 16px 6px 10px;box-shadow:var(--card);border:1px solid rgba(60,68,56,.12);
@@ -276,15 +288,18 @@ body.touch-ui #hint{bottom:calc(176px + env(safe-area-inset-bottom));max-width:m
   <div id="hint" class="hidden"></div>
   <div id="panel" class="hidden"><div class="paper inner"></div></div>
   <div id="title" class="hidden">
-    <div class="logo"><span class="w1">FLIPPIN'</span><span class="w2">WAFFLES</span></div>
-    <div class="tag">a cozy wombat delivery adventure in Yosemitea National Park</div>
-    <button id="start" class="btn big">Start Flippin'</button>
-    <div class="controls">
-      <div><b>Kitchen</b> walk with <b>WASD</b> or tap where you want to go · <b>Space</b> uses whatever you are stood next to · tap a thing to walk over and use it</div>
-      <div><b>Scooter</b> WASD / arrows · Space = hop &amp; drift · Shift = trick in air · H = honk · R = rescue · M = mute · Esc = pause · <b>on touch</b> use the wheel and pedals</div>
-      <div><b>The valley</b> Northside &amp; Southside Drive · watch for cars · grind the guardrails · boost pads · bounce mushrooms · the flume · a hollow-log tunnel · rings &amp; syrup tokens</div>
+    <div class="card">
+      <div class="logo"><span class="w1">FLIPPIN'</span><span class="w2">WAFFLES</span></div>
+      <div class="tag">a cozy wombat delivery adventure</div>
+      <button id="start" class="btn big">Start Flippin'</button>
+      <div class="save"></div>
+      <details class="help">
+        <summary>How to play</summary>
+        <div><b>Kitchen</b> walk with WASD or tap where you want to go · Space uses whatever you are stood next to</div>
+        <div><b>Scooter</b> WASD · Space hop &amp; drift · Shift trick · H honk · R rescue · Esc pause · on touch, the wheel and pedals</div>
+        <div><b>Valley</b> grind guardrails, hit boost pads, dodge cars, mind the bears</div>
+      </details>
     </div>
-    <div class="save"></div>
   </div>
   <div id="fade"></div>
 </div>
@@ -643,6 +658,10 @@ FW.Pixel = (() => {
     let m;
     switch (name) {
       case 'soft': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.96, metalness: 0.0 }); break;
+      // Flat colour, no atlas at all. The low-poly character reads off its
+      // facets, and at distance the atlas' lower mip levels average
+      // neighbouring bands together and smear wood grain across the fur.
+      case 'toy': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.88, metalness: 0.0, envMapIntensity: 0.25 }); break;
       // "shiny" now means satin, not lacquer — a painted appliance, not plastic
       case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.66, metalness: 0.02, envMapIntensity: 0.42 }); break;
       // and metal is worn steel: still metal, but brushed rather than chromed
@@ -1184,7 +1203,7 @@ FW.Pixel = (() => {
 // ---------- palette: "Sunday-morning plush" ----------
 FW.PAL = {
   duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#2a2320', blush: '#e8a08f', white: '#fffdf6',
-  fur: '#b39a7c', furDark: '#8f7a60', furLight: '#cdb99c', nose: '#4a3f36', claw: '#ece5d9',
+  fur: '#b39a7c', furDark: '#937e63', furLight: '#d3c1a6', nose: '#6b5c50', claw: '#ece5d9',
   // muted to match the lamplit palette — the cream panel used to blow out
   apron: '#a8443a', apronTrim: '#d8c6a6', hatA: '#cbb894', hatB: '#a8443a', hatC: '#c39a3e', hatD: '#5f9c8e', prop: '#3d7f9c',
   candy: '#ff8fb0', stick: '#fff3dc',
@@ -1312,6 +1331,18 @@ FW.Models = (() => {
     const k = key('t', r, tube, rad, tub, arc); if (geoCache.has(k)) return geoCache.get(k);
     const g = new THREE.TorusGeometry(r, tube, rad, tub, arc || Math.PI * 2); geoCache.set(k, g); return g;
   }
+  // Plain box and triangular prism: the building blocks for the low-poly
+  // character work, where a rounded box would just read as a blurry lump.
+  function box(w, h, d) {
+    const k = key('bx', w, h, d); if (geoCache.has(k)) return geoCache.get(k);
+    const g = new THREE.BoxGeometry(w, h, d); geoCache.set(k, g); return g;
+  }
+  function wedge(w, h, d) {
+    const k = key('wg', w, h, d); if (geoCache.has(k)) return geoCache.get(k);
+    const g = new THREE.CylinderGeometry(0.0001, Math.SQRT1_2, h, 3, 1);
+    g.rotateY(Math.PI / 4); g.scale(w / Math.SQRT1_2 * 0.72, 1, d / Math.SQRT1_2 * 0.72);
+    geoCache.set(k, g); return g;
+  }
   function blob(r, detail = 1) { const k = key('b', r, detail); if (geoCache.has(k)) return geoCache.get(k); const g = new THREE.IcosahedronGeometry(r, detail); geoCache.set(k, g); return g; }
 
   // part descriptor
@@ -1323,7 +1354,7 @@ FW.Models = (() => {
   const nonIndexed = new Map();
   function ni(g) { if (g.index === null) return g; if (nonIndexed.has(g)) return nonIndexed.get(g); const n = g.toNonIndexed(); nonIndexed.set(g, n); return n; }
 
-  function mergeParts(parts) {
+  function mergeParts(parts, flat = false) {
     const groups = {};
     for (const q of parts) (groups[q.mat] || (groups[q.mat] = [])).push(q);
     const out = [];
@@ -1369,13 +1400,14 @@ FW.Models = (() => {
       geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(cls, 3));
       geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      if (flat) geo.computeVertexNormals();   // non-indexed => one normal per face
       out.push({ geo, mat: m });
     }
     return out;
   }
   function build(parts, opts = {}) {
     const g = new THREE.Group();
-    for (const { geo, mat } of mergeParts(parts)) {
+    for (const { geo, mat } of mergeParts(parts, !!opts.flat)) {
       const mesh = new THREE.Mesh(geo, FW.Pixel.fam(mat));
       mesh.castShadow = opts.cast !== false; mesh.receiveShadow = opts.receive !== false;
       g.add(mesh);
@@ -1398,98 +1430,104 @@ FW.Models = (() => {
   // ---------- the hero: a heavy, chunky wombat ----------
   // Cartoon-human proportions: a big barrel torso, short thick limbs, a broad
   // low head, and a flat 2D face card carrying the eyes and mouth.
+  // The hero, low-poly. Flat-shaded boxes and wedges rather than a pile of
+  // merged spheres: every plane catches the light differently, which is what
+  // makes a simple shape read as solid instead of as a blurry lump. No surface
+  // texture on the fur either — flat colour is the point of the style.
+  // a small smiling mouth, cut as two angled blocks rather than one dark bar
+  function sub_mouth(hp) {
+    for (const sx of [-1, 1]) hp.push(p(box(0.07, 0.022, 0.03), '#5c4a3c', sx * 0.035, -0.128, 0.415, { rz: sx * 0.34, mat: 'toy' }));
+  }
   function hero(opts = {}) {
     const g = new THREE.Group();
     const F = P.fur, FD = P.furDark, FL = P.furLight;
     const sit = !!opts.sitting;
     const bodyG = new THREE.Group();
     const parts = [];
-    // Torso on wombat lines, not teddy-bear lines: a low slung barrel that is
-    // wider than it is tall, heaviest at the hips, with almost no neck and a
-    // rump that rounds off flat (a wombat's rear is its armour).
-    parts.push(p(sphere(0.42, 16, 12), F, 0, 0.40, -0.02, { sx: 1.30, sy: 0.92, sz: 1.10, mat: 'soft' }));
-    parts.push(p(sphere(0.36, 14, 10), F, 0, 0.58, 0.04, { sx: 1.14, sy: 0.72, sz: 0.96, mat: 'soft' }));
-    parts.push(p(sphere(0.30, 14, 10), FL, 0, 0.40, 0.30, { sx: 1.00, sy: 0.94, sz: 0.52, mat: 'soft' }));
-    parts.push(p(sphere(0.40, 12, 9), FD, 0, 0.42, -0.32, { sx: 1.18, sy: 0.92, sz: 0.50, mat: 'soft' }));
+
+    // --- torso: a wide wedge-topped block, heaviest at the hips ---
+    parts.push(p(box(0.86, 0.50, 0.78), F, 0, 0.40, -0.02, { mat: 'toy' }));
+    parts.push(p(box(0.72, 0.26, 0.66), F, 0, 0.70, 0.01, { mat: 'toy' }));           // shoulders
+    parts.push(p(box(0.60, 0.16, 0.50), F, 0, 0.83, 0.03, { mat: 'toy' }));           // neck block
+    parts.push(p(box(0.50, 0.34, 0.10), FL, 0, 0.52, 0.40, { mat: 'toy' }));          // pale chest plate
+    parts.push(p(box(0.80, 0.42, 0.12), FD, 0, 0.38, -0.42, { mat: 'toy' }));         // flat armoured rump
+    parts.push(p(wedge(0.86, 0.18, 0.78), F, 0, 0.74, -0.02, { mat: 'toy' }));        // bevel off the back
+
     if (opts.apron !== false) {
-      parts.push(p(roundedBox(0.30, 0.26, 0.10, 0.05), P.apron, 0, 0.60, 0.30, { rx: -0.12, mat: 'soft' }));       // bib
-      // a skirt panel that only wraps the front two thirds, hem trimmed
-      parts.push(p(cyl(0.505, 0.55, 0.28, 22, true, -1.15, 2.30), P.apron, 0, 0.33, 0.00, { sz: 0.90, mat: 'shell' }));
-      parts.push(p(cyl(0.548, 0.556, 0.045, 22, true, -1.15, 2.30), P.apronTrim, 0, 0.20, 0.00, { sz: 0.90, mat: 'shell' }));
-      // waist tie, front only, with the strings running back
-      parts.push(p(cyl(0.545, 0.565, 0.055, 22, true, -1.35, 2.70), P.apronTrim, 0, 0.50, 0.00, { sz: 0.90, mat: 'shell' }));
-      parts.push(p(capsule(0.028, 0.22), P.apron, -0.18, 0.75, 0.25, { rx: -0.18, rz: -0.4 }));
-      parts.push(p(capsule(0.028, 0.22), P.apron, 0.18, 0.75, 0.25, { rx: -0.18, rz: 0.4 }));
-      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: 0.5 }));
-      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: -0.5 }));
-      parts.push(p(cyl(0.06, 0.06, 0.02, 16), P.gold, 0, 0.62, 0.395, { rx: Math.PI / 2, mat: 'soft' }));
-      parts.push(p(torus(0.06, 0.014, 6, 18), '#c98f2b', 0, 0.62, 0.4));
+      parts.push(p(box(0.34, 0.30, 0.06), P.apron, 0, 0.62, 0.44, { mat: 'toy' }));       // bib
+      parts.push(p(box(0.74, 0.36, 0.06), P.apron, 0, 0.32, 0.42, { mat: 'toy' }));       // skirt
+      parts.push(p(box(0.78, 0.07, 0.07), P.apronTrim, 0, 0.50, 0.43, { mat: 'toy' }));   // waist tie
+      parts.push(p(box(0.76, 0.05, 0.07), P.apronTrim, 0, 0.15, 0.43, { mat: 'toy' }));   // hem
+      for (const sx of [-1, 1]) parts.push(p(box(0.06, 0.22, 0.06), P.apron, sx * 0.15, 0.78, 0.42, { rz: sx * 0.22, mat: 'toy' }));
+      parts.push(p(box(0.12, 0.09, 0.03), P.gold, 0, 0.60, 0.475, { mat: 'toy' }));   // name badge
     }
-    // short, thick legs
-    // Legs: stubby, set wide, splayed out — a wombat walks low and rolling.
-    const fz = sit ? 0.28 : 0.04;
+
+    // --- legs: stubby blocks, set wide and splayed ---
+    const fz = sit ? 0.26 : 0.02;
     for (const sx of [-1, 1]) {
-      parts.push(p(capsule(0.125, sit ? 0.14 : 0.06), F, sx * 0.26, sit ? 0.20 : 0.13, fz, { rx: sit ? 1.05 : 0, rz: sx * 0.16, mat: 'soft' }));
-      parts.push(p(sphere(0.145, 12, 8), FD, sx * 0.28, 0.05, fz + (sit ? 0.08 : 0.05), { sy: 0.5, sz: 1.35, ry: sx * 0.22, mat: 'soft' }));
-      for (let i = -1; i <= 1; i++) parts.push(p(capsule(0.019, 0.03), P.claw, sx * 0.28 + i * 0.05, 0.042, fz + (sit ? 0.19 : 0.16), { rx: 1.35 }));
+      parts.push(p(box(0.24, sit ? 0.30 : 0.24, 0.24), F, sx * 0.27, sit ? 0.26 : 0.14, fz, { rx: sit ? 0.95 : 0, rz: sx * 0.1, mat: 'toy' }));
+      parts.push(p(box(0.28, 0.11, 0.34), FD, sx * 0.28, 0.055, fz + (sit ? 0.12 : 0.06), { ry: sx * 0.14, mat: 'toy' }));   // foot
+      for (let i = -1; i <= 1; i++) parts.push(p(box(0.045, 0.05, 0.07), P.claw, sx * 0.28 + i * 0.075, 0.05, fz + (sit ? 0.28 : 0.22), { mat: 'toy' }));
     }
-    const HTEX = { [F]: 'fur', [FD]: 'fur', [FL]: 'fur', [P.apron]: 'cloth', [P.apronTrim]: 'cloth' };
-    bodyG.add(build(texBy(parts, HTEX, 4)));
+    bodyG.add(build(parts, { flat: true }));
     g.add(bodyG);
 
-    // head: broad, sitting low on the shoulders
-    const head = new THREE.Group(); head.position.set(0, 0.90, 0.11); head.scale.setScalar(1.14);
-    const HR = 0.29;
+    // --- head: broad and flat-topped, with a squared muzzle ---
+    const head = new THREE.Group(); head.position.set(0, 0.94, 0.08); head.scale.setScalar(1.06);
     const hp = [];
-    // Head: broad and flat on top, much wider than it is tall, with a squared
-    // muzzle and the big blunt bare nose a wombat actually has. The ears are
-    // small, rounded and set wide out on the corners — a bear's are tall and
-    // set high, which is what made this read as a teddy.
-    hp.push(p(sphere(HR, 16, 12), F, 0, 0, 0, { sx: 1.34, sy: 0.82, sz: 1.00, mat: 'soft' }));
-    hp.push(p(roundedBox(0.30, 0.19, 0.24, 0.09), F, 0, -0.09, 0.16, { mat: 'soft' }));          // squared muzzle
-    hp.push(p(roundedBox(0.26, 0.13, 0.12, 0.055), FL, 0, -0.10, 0.25, { mat: 'soft' }));        // pale snout bridge
-    hp.push(p(roundedBox(0.155, 0.105, 0.075, 0.042), P.nose, 0, -0.075, 0.325));                // bare rhinarium, matte
-    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', -0.043, -0.082, 0.356, { sz: 0.7 }));
-    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', 0.043, -0.082, 0.356, { sz: 0.7 }));
-    hp.push(p(roundedBox(0.10, 0.02, 0.03, 0.01), '#4a3f36', 0, -0.135, 0.30));                  // mouth line
+    hp.push(p(box(0.66, 0.40, 0.50), F, 0, 0, 0, { mat: 'toy' }));                  // skull
+    hp.push(p(wedge(0.66, 0.13, 0.50), F, 0, 0.26, 0, { mat: 'toy' }));             // crown bevel
+    hp.push(p(box(0.34, 0.24, 0.22), F, 0, -0.10, 0.30, { mat: 'toy' }));           // muzzle
+    hp.push(p(box(0.28, 0.12, 0.06), FL, 0, -0.12, 0.42, { mat: 'toy' }));          // pale bridge
+    hp.push(p(box(0.115, 0.055, 0.05), P.nose, 0, -0.048, 0.437, { mat: 'toy' }));        // bare nose pad
+    hp.push(p(box(0.026, 0.018, 0.015), '#221b16', -0.028, -0.052, 0.463, { mat: 'toy' }));  // nostrils
+    hp.push(p(box(0.026, 0.018, 0.015), '#221b16', 0.028, -0.052, 0.463, { mat: 'toy' }));
+    sub_mouth(hp);
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.075, 12, 9), F, sx * 0.285, 0.105, -0.02, { sx: 0.85, sy: 0.9, sz: 0.55, rz: sx * 0.32, mat: 'soft' }));
-      hp.push(p(sphere(0.048, 8, 6), FD, sx * 0.30, 0.10, 0.008, { sx: 0.8, sy: 0.85, sz: 0.3, rz: sx * 0.32, mat: 'soft' }));
-      hp.push(p(sphere(0.055, 10, 8), FL, sx * 0.17, -0.02, 0.235, { sx: 0.9, sy: 0.7, sz: 0.5, mat: 'soft' }));   // cheek tufts
+      hp.push(p(box(0.13, 0.15, 0.07), F, sx * 0.33, 0.20, -0.04, { rz: sx * 0.34, mat: 'toy' }));   // ear
+      hp.push(p(box(0.08, 0.09, 0.04), FD, sx * 0.35, 0.19, -0.005, { rz: sx * 0.34, mat: 'toy' })); // inner ear
+      hp.push(p(box(0.14, 0.10, 0.06), FL, sx * 0.20, -0.06, 0.28, { mat: 'toy' }));                 // cheek
     }
-    head.add(build(texBy(hp, HTEX, 3)));
-    // 2D face card: eyes and mouth, swapped for expressions
+    head.add(build(hp, { flat: true }));
+
+    // 2D face card: eyes and brows, swapped for expressions
     const faceMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.faceTexture('neutral'), transparent: true, alphaTest: 0.35, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 2.25, HR * 0.70), faceMat);
-    face.position.set(0, 0.105, HR * 0.885); face.renderOrder = 2;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.60, 0.19), faceMat);
+    face.position.set(0, 0.07, 0.253); face.renderOrder = 2;
     head.add(face);
-    // beanie
-    const hat = new THREE.Group(); hat.position.set(0, 0.16, -0.03);
+
+    // --- beanie: a faceted cap, four panels, no sphere in sight ---
+    const hat = new THREE.Group(); hat.position.set(0, 0.20, -0.01);
     const cols = [P.hatA, P.hatB, P.hatC, P.hatD];
     const hpr = [];
-    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.215, 10, 7, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, sx: 1.06, sz: 1.02, mat: 'soft' }));
-    hpr.push(p(torus(0.222, 0.026, 6, 22), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2, sx: 1.04, sy: 1.0 }));
-    hpr.push(p(cyl(0.019, 0.025, 0.085, 8), '#b9bfc9', 0, 0.16, 0, { mat: 'metal' }));
-    hat.add(build(texBy(hpr, { [P.hatA]: 'cloth', [P.hatB]: 'cloth', [P.hatC]: 'cloth', [P.hatD]: 'cloth' }, 3)));
+    hpr.push(p(box(0.70, 0.13, 0.54), P.hatB, 0, 0.0, 0, { mat: 'toy' }));            // brim band
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      hpr.push(p(wedge(0.40, 0.20, 0.34), cols[i], Math.cos(a) * 0.13, 0.14, Math.sin(a) * 0.11, { ry: a, mat: 'toy' }));
+    }
+    hpr.push(p(box(0.05, 0.10, 0.05), '#b9bfc9', 0, 0.28, 0, { mat: 'metal' }));       // spindle
+    hat.add(build(hpr, { flat: true }));
     head.add(hat);
-    const prop = new THREE.Group(); prop.position.set(0, 0.345, -0.03);
-    const pp = [p(sphere(0.034, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
-    for (const sx of [-1, 1]) pp.push(p(roundedBox(0.2, 0.015, 0.052, 0.007), P.prop, sx * 0.118, 0.004, 0, { rz: sx * 0.2, ry: sx * 0.14, mat: 'shiny' }));
-    prop.add(build(pp));
+
+    const prop = new THREE.Group(); prop.position.set(0, 0.53, -0.01);
+    const pp = [p(box(0.07, 0.05, 0.07), P.hatB, 0, 0, 0, { mat: 'toy' })];
+    for (const sx of [-1, 1]) pp.push(p(box(0.22, 0.02, 0.06), P.prop, sx * 0.13, 0.005, 0, { rz: sx * 0.16, ry: sx * 0.2, mat: 'toy' }));
+    prop.add(build(pp, { flat: true }));
     head.add(prop);
     g.add(head);
 
-    // short thick arms
+    // --- arms: blocks, angled out ---
     const arms = [];
     for (const sx of [-1, 1]) {
-      const a = new THREE.Group(); a.position.set(sx * 0.36, 0.66, 0.04);
-      a.add(build(texBy([
-        p(capsule(0.105, 0.19), F, sx * 0.1, -0.03, 0, { rz: sx * 1.2, mat: 'soft' }),
-        p(sphere(0.115, 12, 9), FD, sx * 0.24, -0.07, 0.02, { mat: 'soft' }),
-        ...[-1, 0, 1].map((i) => p(sphere(0.025, 6, 5), P.claw, sx * 0.31, -0.07 + i * 0.048, 0.07, { sz: 1.4 })),
-      ], HTEX, 4)));
+      const a = new THREE.Group(); a.position.set(sx * 0.32, 0.72, 0.04);
+      a.add(build([
+        p(box(0.21, 0.36, 0.22), F, sx * 0.05, -0.13, 0, { rz: sx * 0.30, mat: 'toy' }),
+        p(box(0.21, 0.15, 0.23), FD, sx * 0.14, -0.31, 0.02, { rz: sx * 0.30, mat: 'toy' }),   // paw
+        ...[-1, 0, 1].map((i) => p(box(0.04, 0.05, 0.07), P.claw, sx * 0.16 + i * 0.055, -0.35, 0.11, { mat: 'toy' })),
+      ], { flat: true }));
       g.add(a); arms.push(a);
     }
+
     let expr = 'neutral', blinkT = 2 + Math.random() * 3;
     g.userData = {
       head, arms, wings: arms, prop, body: bodyG, hat, face,
@@ -2104,7 +2142,7 @@ FW.Models = (() => {
   }
 
   return { p, build, geoOf, mergeParts, roundedBox, sphere, capsule, cyl, cone, torus, blob, shade,
-    hero, duck, scooter, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
+    hero, duck, scooter, box, wedge, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
     firGeo, pineGeo, cedarGeo, sequoiaGeo, oakGeo, snagGeo, deadfallGeo, fernGeo, grassGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo, guardrailGeo, roadSign, mileMarker, quad, card, car, CAR_KINDS,
     shack, cabin, rangerStation, tent, campfire, picnicTable, signpost, marker, token, airRing, arrowSign };
 })();
@@ -2695,9 +2733,9 @@ FW.World = (() => {
   let customer = null, marker = null, chimneys = [], minimap = null;
 
   const timeStops = [
-    { zen: '#5c93c9', hor: '#e8d3b4', sun: '#ffeacb', sunI: 3.1, hemiSky: '#b6cfe4', hemiGnd: '#6a6650', fog: '#cbd3d4', amb: 0.5 },
-    { zen: '#437fbe', hor: '#c4d8e6', sun: '#fff6e6', sunI: 3.5, hemiSky: '#c2d8ea', hemiGnd: '#77735a', fog: '#c2d2da', amb: 0.62 },
-    { zen: '#3c3f6b', hor: '#e0956a', sun: '#ffb277', sunI: 2.4, hemiSky: '#b9a8c9', hemiGnd: '#4e4c3e', fog: '#c9a58c', amb: 0.42 },
+    { zen: '#6ba0cf', hor: '#f0dcbe', sun: '#ffe6bf', sunI: 2.8, hemiSky: '#c6dcef', hemiGnd: '#7d7358', fog: '#d5dad6', amb: 0.95 },
+    { zen: '#5490c9', hor: '#d6e4ec', sun: '#fff3dd', sunI: 3.0, hemiSky: '#cfe1f0', hemiGnd: '#877f62', fog: '#ccd8dc', amb: 1.08 },
+    { zen: '#4a4573', hor: '#e8a475', sun: '#ffbd85', sunI: 2.2, hemiSky: '#c4b3d0', hemiGnd: '#5c5645', fog: '#d0ac93', amb: 0.82 },
   ];
 
   // ---------------- terrain ----------------
@@ -3520,7 +3558,7 @@ FW.World = (() => {
     fill = new THREE.DirectionalLight('#8ea6c2', 0.34); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
     hemi = new THREE.HemisphereLight(0xa9c2da, 0x5f5648, 0.62); scene.add(hemi);
     // denser, warmer haze so distance falls away instead of staying crisp
-    scene.fog = new THREE.FogExp2(0xa8aa9c, 0.0062);
+    scene.fog = new THREE.FogExp2(0xc4cbc4, 0.0038);
     scene.environment = FW.Pixel.envOutdoor;
     for (let i = 0; i < 14; i++) {
       const g = new THREE.Group(), n = 3 + Math.floor(rand() * 3);
@@ -5050,6 +5088,10 @@ FW.Kitchen = class {
   beginWaffle() {
     this.cur = { counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, whisk: 0, stirs: 0, smooth: 0, flip: 0, cook: 0, toppings: new Set(), doneness: 0.5 };
     this.state = 'mixing'; this.cook = 0; this.addPitch = 0; this.held = null;
+    // Stroll over to the fridge to start. With a follow camera the fridge is
+    // off the side of the screen from anywhere else, and on a phone there is
+    // no cursor to hunt with — walking there puts the first step in frame.
+    this.walkTo(3.15, -0.95);
     this.batter.visible = false; this.batter.material.color.set('#f7e6b8');
     this.ironBatter.visible = false; this.ironWaffle.visible = false; this.plateWaffle.visible = false;
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
@@ -5299,7 +5341,7 @@ FW.Kitchen = class {
   }
   updateWalk(dt, inp) {
     const U = FW.U, W = this.WALK, w = this.walk;
-    const SPEED = 3.1;
+    const SPEED = 3.5;
     // keyboard/stick steering takes over and drops any walk-to target
     let ix = (inp.held('right') ? 1 : 0) - (inp.held('left') ? 1 : 0);
     let iz = (inp.held('down') ? 1 : 0) - (inp.held('up') ? 1 : 0);
@@ -5317,17 +5359,17 @@ FW.Kitchen = class {
         const p = w.pending; w.target = null; w.pending = null;
         if (p) this.arrive(p);
       } else {
-        const ease = Math.min(1, d / 0.7);          // ease in to the last step
+        const ease = Math.min(1, 0.35 + d / 0.45);  // ease in, but do not crawl
         dx = (tx / d) * SPEED * ease; dz = (tz / d) * SPEED * ease;
       }
     }
     // spring the velocity so starts and stops have some weight
-    w.vel.x = U.damp(w.vel.x, dx, 12, dt);
-    w.vel.z = U.damp(w.vel.z, dz, 12, dt);
+    w.vel.x = U.damp(w.vel.x, dx, 20, dt);
+    w.vel.z = U.damp(w.vel.z, dz, 20, dt);
     w.pos.x = U.clamp(w.pos.x + w.vel.x * dt, W.x0, W.x1);
     w.pos.z = U.clamp(w.pos.z + w.vel.z * dt, W.z0, W.z1);
     const sp = Math.hypot(w.vel.x, w.vel.z);
-    if (sp > 0.12) w.yaw = U.angleLerp(w.yaw, Math.atan2(w.vel.x, w.vel.z), 1 - Math.exp(-11 * dt));
+    if (sp > 0.12) w.yaw = U.angleLerp(w.yaw, Math.atan2(w.vel.x, w.vel.z), 1 - Math.exp(-15 * dt));
     w.bob += sp * dt * 3.4;
     // drive the model: waddle, lean into the turn, squash on each footfall
     const c = this.chef;
@@ -5633,7 +5675,11 @@ FW.Kitchen = class {
   const renderer = FW.Pixel.init(canvas);
   const worldScene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(FW.Pixel.fitFov(62), FW.Pixel.size.aspect, 0.1, 1500);
+  // Rides with the menu camera so the wombat is always lit on the shot; off
+  // during play, where the valley's own light does the work.
+  const titleFill = new THREE.DirectionalLight('#ffeccb', 0);
   const { fx } = W.build(worldScene);
+  worldScene.add(titleFill, titleFill.target);
   const kart = new FW.Kart(worldScene);
   const bears = new FW.Bears(worldScene, W, fx);
   const kitchen = new FW.Kitchen();
@@ -5662,10 +5708,11 @@ FW.Kitchen = class {
   function showTitle() {
     G.state = 'title'; HUD.hideAll(); HUD.title(true, save.delivered ? `Welcome back! Day ${save.day} · ${save.coins} coins · ${save.delivered} deliveries` : 'New game — cozy mode: no fail states, just waffles');
     kart.reset(START.x, START.z, START.yaw); kart.controllable = false; kart.setBoxVisible(true);
-    W.setDelivery(null); W.setTimeOfDay(0.15);
+    W.setDelivery(null); W.setTimeOfDay(0.46);   // brightest stop, so the menu shot reads
     document.getElementById('game').style.cursor = 'default';
   }
   function startGame() {
+    titleFill.intensity = 0;
     A.init(); A.resume();
     HUD.title(false);
     if (save.orderIndex >= G.dayOrders) { save.orderIndex = 0; save.day++; }
@@ -5677,7 +5724,7 @@ FW.Kitchen = class {
   function nextOrder() {
     G.order = FW.Orders.makeOrder(save.day, save.orderIndex, destInfo());
     G.results = []; G.stolen = 0;
-    W.setTimeOfDay([0.12, 0.5, 0.9][save.orderIndex % 3]);
+    W.setTimeOfDay([0.22, 0.5, 0.82][save.orderIndex % 3]);   // never full dusk on a delivery
     G.state = 'kitchen'; G.timer = G.timerMax = G.order.cookTime;
     HUD.touchControls(false); HUD.mess(0); HUD.data.nav = null;
     HUD.hideAll(); HUD.stats(save); HUD.ticket(G.order, { index: 0, made: [], counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, toppings: new Set() });
@@ -5858,10 +5905,28 @@ FW.Kitchen = class {
     const p = kart.pos;
     switch (G.state) {
       case 'title': {
-        G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
-        const a = G.titleT * 0.14, hy = W.groundY(0, 66);
-        camera.position.set(Math.sin(a) * 36, hy + 23 + Math.sin(G.titleT * 0.5) * 1.6, 66 + Math.cos(a) * 36);
-        camera.lookAt(13, hy + 5, 66); FW.Pixel.setFov(camera, 52);
+        // The menu shows the wombat actually driving: it cruises Northside
+        // Drive on autopilot while the camera holds a slow cinematic chase.
+        G.titleT += dt;
+        const s = 340 + G.titleT * 7.5;                      // metres along the road
+        const A = W.roadPoint('northside', s), B = W.roadPoint('northside', s + 6);
+        kart.pos.set(A.x, W.groundY(A.x, A.z) + 0.06, A.z);
+        kart.yaw = Math.atan2(B.x - A.x, B.z - A.z);
+        kart.speed = 12;
+        kart.leanZ.set(Math.sin(G.titleT * 0.8) * 0.10);
+        W.update(dt, kart.pos, camera); bears.update(dt, kart, 0);
+        kart.updateVisual(dt, 0, W);
+        // orbit a little around the rider so both the wombat and the valley read
+        // swing round to a three-quarter view so the rider reads, not its back
+        const orb = 1.20 + Math.sin(G.titleT * 0.19) * 0.38;    // road side: no guardrail across the shot
+        const cy = Math.cos(kart.yaw + orb), cx = Math.sin(kart.yaw + orb);
+        camera.position.set(kart.pos.x - cx * 5.0, kart.pos.y + 1.95 + Math.sin(G.titleT * 0.5) * 0.14, kart.pos.z - cy * 5.0);
+        camera.lookAt(kart.pos.x, kart.pos.y + 1.05, kart.pos.z);
+        titleFill.intensity = 1.5;
+        titleFill.position.copy(camera.position).add(new THREE.Vector3(0, 2.2, 0));
+        titleFill.target.position.set(kart.pos.x, kart.pos.y + 0.9, kart.pos.z);
+        FW.Pixel.setFov(camera, 42);
+        if (s > 720) G.titleT = 0;                            // loop the drive
         break; }
       case 'kitchen': {
         kitchen.update(dt, Inp);

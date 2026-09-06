@@ -204,6 +204,10 @@ FW.Pixel = (() => {
     let m;
     switch (name) {
       case 'soft': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.96, metalness: 0.0 }); break;
+      // Flat colour, no atlas at all. The low-poly character reads off its
+      // facets, and at distance the atlas' lower mip levels average
+      // neighbouring bands together and smear wood grain across the fur.
+      case 'toy': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.88, metalness: 0.0, envMapIntensity: 0.25 }); break;
       // "shiny" now means satin, not lacquer — a painted appliance, not plastic
       case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.66, metalness: 0.02, envMapIntensity: 0.42 }); break;
       // and metal is worn steel: still metal, but brushed rather than chromed
@@ -745,7 +749,7 @@ FW.Pixel = (() => {
 // ---------- palette: "Sunday-morning plush" ----------
 FW.PAL = {
   duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#2a2320', blush: '#e8a08f', white: '#fffdf6',
-  fur: '#b39a7c', furDark: '#8f7a60', furLight: '#cdb99c', nose: '#4a3f36', claw: '#ece5d9',
+  fur: '#b39a7c', furDark: '#937e63', furLight: '#d3c1a6', nose: '#6b5c50', claw: '#ece5d9',
   // muted to match the lamplit palette — the cream panel used to blow out
   apron: '#a8443a', apronTrim: '#d8c6a6', hatA: '#cbb894', hatB: '#a8443a', hatC: '#c39a3e', hatD: '#5f9c8e', prop: '#3d7f9c',
   candy: '#ff8fb0', stick: '#fff3dc',

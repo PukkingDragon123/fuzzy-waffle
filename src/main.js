@@ -5,7 +5,11 @@
   const renderer = FW.Pixel.init(canvas);
   const worldScene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(FW.Pixel.fitFov(62), FW.Pixel.size.aspect, 0.1, 1500);
+  // Rides with the menu camera so the wombat is always lit on the shot; off
+  // during play, where the valley's own light does the work.
+  const titleFill = new THREE.DirectionalLight('#ffeccb', 0);
   const { fx } = W.build(worldScene);
+  worldScene.add(titleFill, titleFill.target);
   const kart = new FW.Kart(worldScene);
   const bears = new FW.Bears(worldScene, W, fx);
   const kitchen = new FW.Kitchen();
@@ -34,10 +38,11 @@
   function showTitle() {
     G.state = 'title'; HUD.hideAll(); HUD.title(true, save.delivered ? `Welcome back! Day ${save.day} · ${save.coins} coins · ${save.delivered} deliveries` : 'New game — cozy mode: no fail states, just waffles');
     kart.reset(START.x, START.z, START.yaw); kart.controllable = false; kart.setBoxVisible(true);
-    W.setDelivery(null); W.setTimeOfDay(0.15);
+    W.setDelivery(null); W.setTimeOfDay(0.46);   // brightest stop, so the menu shot reads
     document.getElementById('game').style.cursor = 'default';
   }
   function startGame() {
+    titleFill.intensity = 0;
     A.init(); A.resume();
     HUD.title(false);
     if (save.orderIndex >= G.dayOrders) { save.orderIndex = 0; save.day++; }
@@ -49,7 +54,7 @@
   function nextOrder() {
     G.order = FW.Orders.makeOrder(save.day, save.orderIndex, destInfo());
     G.results = []; G.stolen = 0;
-    W.setTimeOfDay([0.12, 0.5, 0.9][save.orderIndex % 3]);
+    W.setTimeOfDay([0.22, 0.5, 0.82][save.orderIndex % 3]);   // never full dusk on a delivery
     G.state = 'kitchen'; G.timer = G.timerMax = G.order.cookTime;
     HUD.touchControls(false); HUD.mess(0); HUD.data.nav = null;
     HUD.hideAll(); HUD.stats(save); HUD.ticket(G.order, { index: 0, made: [], counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, toppings: new Set() });
@@ -230,10 +235,28 @@
     const p = kart.pos;
     switch (G.state) {
       case 'title': {
-        G.titleT += dt; W.update(dt, p, camera); bears.update(dt, kart, 0); kart.updateVisual(dt, 0, W);
-        const a = G.titleT * 0.14, hy = W.groundY(0, 66);
-        camera.position.set(Math.sin(a) * 36, hy + 23 + Math.sin(G.titleT * 0.5) * 1.6, 66 + Math.cos(a) * 36);
-        camera.lookAt(13, hy + 5, 66); FW.Pixel.setFov(camera, 52);
+        // The menu shows the wombat actually driving: it cruises Northside
+        // Drive on autopilot while the camera holds a slow cinematic chase.
+        G.titleT += dt;
+        const s = 340 + G.titleT * 7.5;                      // metres along the road
+        const A = W.roadPoint('northside', s), B = W.roadPoint('northside', s + 6);
+        kart.pos.set(A.x, W.groundY(A.x, A.z) + 0.06, A.z);
+        kart.yaw = Math.atan2(B.x - A.x, B.z - A.z);
+        kart.speed = 12;
+        kart.leanZ.set(Math.sin(G.titleT * 0.8) * 0.10);
+        W.update(dt, kart.pos, camera); bears.update(dt, kart, 0);
+        kart.updateVisual(dt, 0, W);
+        // orbit a little around the rider so both the wombat and the valley read
+        // swing round to a three-quarter view so the rider reads, not its back
+        const orb = 1.20 + Math.sin(G.titleT * 0.19) * 0.38;    // road side: no guardrail across the shot
+        const cy = Math.cos(kart.yaw + orb), cx = Math.sin(kart.yaw + orb);
+        camera.position.set(kart.pos.x - cx * 5.0, kart.pos.y + 1.95 + Math.sin(G.titleT * 0.5) * 0.14, kart.pos.z - cy * 5.0);
+        camera.lookAt(kart.pos.x, kart.pos.y + 1.05, kart.pos.z);
+        titleFill.intensity = 1.5;
+        titleFill.position.copy(camera.position).add(new THREE.Vector3(0, 2.2, 0));
+        titleFill.target.position.set(kart.pos.x, kart.pos.y + 0.9, kart.pos.z);
+        FW.Pixel.setFov(camera, 42);
+        if (s > 720) G.titleT = 0;                            // loop the drive
         break; }
       case 'kitchen': {
         kitchen.update(dt, Inp);

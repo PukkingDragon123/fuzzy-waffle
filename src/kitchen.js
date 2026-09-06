@@ -536,6 +536,10 @@ FW.Kitchen = class {
   beginWaffle() {
     this.cur = { counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, whisk: 0, stirs: 0, smooth: 0, flip: 0, cook: 0, toppings: new Set(), doneness: 0.5 };
     this.state = 'mixing'; this.cook = 0; this.addPitch = 0; this.held = null;
+    // Stroll over to the fridge to start. With a follow camera the fridge is
+    // off the side of the screen from anywhere else, and on a phone there is
+    // no cursor to hunt with — walking there puts the first step in frame.
+    this.walkTo(3.15, -0.95);
     this.batter.visible = false; this.batter.material.color.set('#f7e6b8');
     this.ironBatter.visible = false; this.ironWaffle.visible = false; this.plateWaffle.visible = false;
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
@@ -785,7 +789,7 @@ FW.Kitchen = class {
   }
   updateWalk(dt, inp) {
     const U = FW.U, W = this.WALK, w = this.walk;
-    const SPEED = 3.1;
+    const SPEED = 3.5;
     // keyboard/stick steering takes over and drops any walk-to target
     let ix = (inp.held('right') ? 1 : 0) - (inp.held('left') ? 1 : 0);
     let iz = (inp.held('down') ? 1 : 0) - (inp.held('up') ? 1 : 0);
@@ -803,17 +807,17 @@ FW.Kitchen = class {
         const p = w.pending; w.target = null; w.pending = null;
         if (p) this.arrive(p);
       } else {
-        const ease = Math.min(1, d / 0.7);          // ease in to the last step
+        const ease = Math.min(1, 0.35 + d / 0.45);  // ease in, but do not crawl
         dx = (tx / d) * SPEED * ease; dz = (tz / d) * SPEED * ease;
       }
     }
     // spring the velocity so starts and stops have some weight
-    w.vel.x = U.damp(w.vel.x, dx, 12, dt);
-    w.vel.z = U.damp(w.vel.z, dz, 12, dt);
+    w.vel.x = U.damp(w.vel.x, dx, 20, dt);
+    w.vel.z = U.damp(w.vel.z, dz, 20, dt);
     w.pos.x = U.clamp(w.pos.x + w.vel.x * dt, W.x0, W.x1);
     w.pos.z = U.clamp(w.pos.z + w.vel.z * dt, W.z0, W.z1);
     const sp = Math.hypot(w.vel.x, w.vel.z);
-    if (sp > 0.12) w.yaw = U.angleLerp(w.yaw, Math.atan2(w.vel.x, w.vel.z), 1 - Math.exp(-11 * dt));
+    if (sp > 0.12) w.yaw = U.angleLerp(w.yaw, Math.atan2(w.vel.x, w.vel.z), 1 - Math.exp(-15 * dt));
     w.bob += sp * dt * 3.4;
     // drive the model: waddle, lean into the turn, squash on each footfall
     const c = this.chef;

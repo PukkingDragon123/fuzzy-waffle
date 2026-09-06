@@ -44,6 +44,18 @@ FW.Models = (() => {
     const k = key('t', r, tube, rad, tub, arc); if (geoCache.has(k)) return geoCache.get(k);
     const g = new THREE.TorusGeometry(r, tube, rad, tub, arc || Math.PI * 2); geoCache.set(k, g); return g;
   }
+  // Plain box and triangular prism: the building blocks for the low-poly
+  // character work, where a rounded box would just read as a blurry lump.
+  function box(w, h, d) {
+    const k = key('bx', w, h, d); if (geoCache.has(k)) return geoCache.get(k);
+    const g = new THREE.BoxGeometry(w, h, d); geoCache.set(k, g); return g;
+  }
+  function wedge(w, h, d) {
+    const k = key('wg', w, h, d); if (geoCache.has(k)) return geoCache.get(k);
+    const g = new THREE.CylinderGeometry(0.0001, Math.SQRT1_2, h, 3, 1);
+    g.rotateY(Math.PI / 4); g.scale(w / Math.SQRT1_2 * 0.72, 1, d / Math.SQRT1_2 * 0.72);
+    geoCache.set(k, g); return g;
+  }
   function blob(r, detail = 1) { const k = key('b', r, detail); if (geoCache.has(k)) return geoCache.get(k); const g = new THREE.IcosahedronGeometry(r, detail); geoCache.set(k, g); return g; }
 
   // part descriptor
@@ -55,7 +67,7 @@ FW.Models = (() => {
   const nonIndexed = new Map();
   function ni(g) { if (g.index === null) return g; if (nonIndexed.has(g)) return nonIndexed.get(g); const n = g.toNonIndexed(); nonIndexed.set(g, n); return n; }
 
-  function mergeParts(parts) {
+  function mergeParts(parts, flat = false) {
     const groups = {};
     for (const q of parts) (groups[q.mat] || (groups[q.mat] = [])).push(q);
     const out = [];
@@ -101,13 +113,14 @@ FW.Models = (() => {
       geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(cls, 3));
       geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      if (flat) geo.computeVertexNormals();   // non-indexed => one normal per face
       out.push({ geo, mat: m });
     }
     return out;
   }
   function build(parts, opts = {}) {
     const g = new THREE.Group();
-    for (const { geo, mat } of mergeParts(parts)) {
+    for (const { geo, mat } of mergeParts(parts, !!opts.flat)) {
       const mesh = new THREE.Mesh(geo, FW.Pixel.fam(mat));
       mesh.castShadow = opts.cast !== false; mesh.receiveShadow = opts.receive !== false;
       g.add(mesh);
@@ -130,98 +143,104 @@ FW.Models = (() => {
   // ---------- the hero: a heavy, chunky wombat ----------
   // Cartoon-human proportions: a big barrel torso, short thick limbs, a broad
   // low head, and a flat 2D face card carrying the eyes and mouth.
+  // The hero, low-poly. Flat-shaded boxes and wedges rather than a pile of
+  // merged spheres: every plane catches the light differently, which is what
+  // makes a simple shape read as solid instead of as a blurry lump. No surface
+  // texture on the fur either — flat colour is the point of the style.
+  // a small smiling mouth, cut as two angled blocks rather than one dark bar
+  function sub_mouth(hp) {
+    for (const sx of [-1, 1]) hp.push(p(box(0.07, 0.022, 0.03), '#5c4a3c', sx * 0.035, -0.128, 0.415, { rz: sx * 0.34, mat: 'toy' }));
+  }
   function hero(opts = {}) {
     const g = new THREE.Group();
     const F = P.fur, FD = P.furDark, FL = P.furLight;
     const sit = !!opts.sitting;
     const bodyG = new THREE.Group();
     const parts = [];
-    // Torso on wombat lines, not teddy-bear lines: a low slung barrel that is
-    // wider than it is tall, heaviest at the hips, with almost no neck and a
-    // rump that rounds off flat (a wombat's rear is its armour).
-    parts.push(p(sphere(0.42, 16, 12), F, 0, 0.40, -0.02, { sx: 1.30, sy: 0.92, sz: 1.10, mat: 'soft' }));
-    parts.push(p(sphere(0.36, 14, 10), F, 0, 0.58, 0.04, { sx: 1.14, sy: 0.72, sz: 0.96, mat: 'soft' }));
-    parts.push(p(sphere(0.30, 14, 10), FL, 0, 0.40, 0.30, { sx: 1.00, sy: 0.94, sz: 0.52, mat: 'soft' }));
-    parts.push(p(sphere(0.40, 12, 9), FD, 0, 0.42, -0.32, { sx: 1.18, sy: 0.92, sz: 0.50, mat: 'soft' }));
+
+    // --- torso: a wide wedge-topped block, heaviest at the hips ---
+    parts.push(p(box(0.86, 0.50, 0.78), F, 0, 0.40, -0.02, { mat: 'toy' }));
+    parts.push(p(box(0.72, 0.26, 0.66), F, 0, 0.70, 0.01, { mat: 'toy' }));           // shoulders
+    parts.push(p(box(0.60, 0.16, 0.50), F, 0, 0.83, 0.03, { mat: 'toy' }));           // neck block
+    parts.push(p(box(0.50, 0.34, 0.10), FL, 0, 0.52, 0.40, { mat: 'toy' }));          // pale chest plate
+    parts.push(p(box(0.80, 0.42, 0.12), FD, 0, 0.38, -0.42, { mat: 'toy' }));         // flat armoured rump
+    parts.push(p(wedge(0.86, 0.18, 0.78), F, 0, 0.74, -0.02, { mat: 'toy' }));        // bevel off the back
+
     if (opts.apron !== false) {
-      parts.push(p(roundedBox(0.30, 0.26, 0.10, 0.05), P.apron, 0, 0.60, 0.30, { rx: -0.12, mat: 'soft' }));       // bib
-      // a skirt panel that only wraps the front two thirds, hem trimmed
-      parts.push(p(cyl(0.505, 0.55, 0.28, 22, true, -1.15, 2.30), P.apron, 0, 0.33, 0.00, { sz: 0.90, mat: 'shell' }));
-      parts.push(p(cyl(0.548, 0.556, 0.045, 22, true, -1.15, 2.30), P.apronTrim, 0, 0.20, 0.00, { sz: 0.90, mat: 'shell' }));
-      // waist tie, front only, with the strings running back
-      parts.push(p(cyl(0.545, 0.565, 0.055, 22, true, -1.35, 2.70), P.apronTrim, 0, 0.50, 0.00, { sz: 0.90, mat: 'shell' }));
-      parts.push(p(capsule(0.028, 0.22), P.apron, -0.18, 0.75, 0.25, { rx: -0.18, rz: -0.4 }));
-      parts.push(p(capsule(0.028, 0.22), P.apron, 0.18, 0.75, 0.25, { rx: -0.18, rz: 0.4 }));
-      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: 0.5 }));
-      parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: -0.5 }));
-      parts.push(p(cyl(0.06, 0.06, 0.02, 16), P.gold, 0, 0.62, 0.395, { rx: Math.PI / 2, mat: 'soft' }));
-      parts.push(p(torus(0.06, 0.014, 6, 18), '#c98f2b', 0, 0.62, 0.4));
+      parts.push(p(box(0.34, 0.30, 0.06), P.apron, 0, 0.62, 0.44, { mat: 'toy' }));       // bib
+      parts.push(p(box(0.74, 0.36, 0.06), P.apron, 0, 0.32, 0.42, { mat: 'toy' }));       // skirt
+      parts.push(p(box(0.78, 0.07, 0.07), P.apronTrim, 0, 0.50, 0.43, { mat: 'toy' }));   // waist tie
+      parts.push(p(box(0.76, 0.05, 0.07), P.apronTrim, 0, 0.15, 0.43, { mat: 'toy' }));   // hem
+      for (const sx of [-1, 1]) parts.push(p(box(0.06, 0.22, 0.06), P.apron, sx * 0.15, 0.78, 0.42, { rz: sx * 0.22, mat: 'toy' }));
+      parts.push(p(box(0.12, 0.09, 0.03), P.gold, 0, 0.60, 0.475, { mat: 'toy' }));   // name badge
     }
-    // short, thick legs
-    // Legs: stubby, set wide, splayed out — a wombat walks low and rolling.
-    const fz = sit ? 0.28 : 0.04;
+
+    // --- legs: stubby blocks, set wide and splayed ---
+    const fz = sit ? 0.26 : 0.02;
     for (const sx of [-1, 1]) {
-      parts.push(p(capsule(0.125, sit ? 0.14 : 0.06), F, sx * 0.26, sit ? 0.20 : 0.13, fz, { rx: sit ? 1.05 : 0, rz: sx * 0.16, mat: 'soft' }));
-      parts.push(p(sphere(0.145, 12, 8), FD, sx * 0.28, 0.05, fz + (sit ? 0.08 : 0.05), { sy: 0.5, sz: 1.35, ry: sx * 0.22, mat: 'soft' }));
-      for (let i = -1; i <= 1; i++) parts.push(p(capsule(0.019, 0.03), P.claw, sx * 0.28 + i * 0.05, 0.042, fz + (sit ? 0.19 : 0.16), { rx: 1.35 }));
+      parts.push(p(box(0.24, sit ? 0.30 : 0.24, 0.24), F, sx * 0.27, sit ? 0.26 : 0.14, fz, { rx: sit ? 0.95 : 0, rz: sx * 0.1, mat: 'toy' }));
+      parts.push(p(box(0.28, 0.11, 0.34), FD, sx * 0.28, 0.055, fz + (sit ? 0.12 : 0.06), { ry: sx * 0.14, mat: 'toy' }));   // foot
+      for (let i = -1; i <= 1; i++) parts.push(p(box(0.045, 0.05, 0.07), P.claw, sx * 0.28 + i * 0.075, 0.05, fz + (sit ? 0.28 : 0.22), { mat: 'toy' }));
     }
-    const HTEX = { [F]: 'fur', [FD]: 'fur', [FL]: 'fur', [P.apron]: 'cloth', [P.apronTrim]: 'cloth' };
-    bodyG.add(build(texBy(parts, HTEX, 4)));
+    bodyG.add(build(parts, { flat: true }));
     g.add(bodyG);
 
-    // head: broad, sitting low on the shoulders
-    const head = new THREE.Group(); head.position.set(0, 0.90, 0.11); head.scale.setScalar(1.14);
-    const HR = 0.29;
+    // --- head: broad and flat-topped, with a squared muzzle ---
+    const head = new THREE.Group(); head.position.set(0, 0.94, 0.08); head.scale.setScalar(1.06);
     const hp = [];
-    // Head: broad and flat on top, much wider than it is tall, with a squared
-    // muzzle and the big blunt bare nose a wombat actually has. The ears are
-    // small, rounded and set wide out on the corners — a bear's are tall and
-    // set high, which is what made this read as a teddy.
-    hp.push(p(sphere(HR, 16, 12), F, 0, 0, 0, { sx: 1.34, sy: 0.82, sz: 1.00, mat: 'soft' }));
-    hp.push(p(roundedBox(0.30, 0.19, 0.24, 0.09), F, 0, -0.09, 0.16, { mat: 'soft' }));          // squared muzzle
-    hp.push(p(roundedBox(0.26, 0.13, 0.12, 0.055), FL, 0, -0.10, 0.25, { mat: 'soft' }));        // pale snout bridge
-    hp.push(p(roundedBox(0.155, 0.105, 0.075, 0.042), P.nose, 0, -0.075, 0.325));                // bare rhinarium, matte
-    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', -0.043, -0.082, 0.356, { sz: 0.7 }));
-    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', 0.043, -0.082, 0.356, { sz: 0.7 }));
-    hp.push(p(roundedBox(0.10, 0.02, 0.03, 0.01), '#4a3f36', 0, -0.135, 0.30));                  // mouth line
+    hp.push(p(box(0.66, 0.40, 0.50), F, 0, 0, 0, { mat: 'toy' }));                  // skull
+    hp.push(p(wedge(0.66, 0.13, 0.50), F, 0, 0.26, 0, { mat: 'toy' }));             // crown bevel
+    hp.push(p(box(0.34, 0.24, 0.22), F, 0, -0.10, 0.30, { mat: 'toy' }));           // muzzle
+    hp.push(p(box(0.28, 0.12, 0.06), FL, 0, -0.12, 0.42, { mat: 'toy' }));          // pale bridge
+    hp.push(p(box(0.115, 0.055, 0.05), P.nose, 0, -0.048, 0.437, { mat: 'toy' }));        // bare nose pad
+    hp.push(p(box(0.026, 0.018, 0.015), '#221b16', -0.028, -0.052, 0.463, { mat: 'toy' }));  // nostrils
+    hp.push(p(box(0.026, 0.018, 0.015), '#221b16', 0.028, -0.052, 0.463, { mat: 'toy' }));
+    sub_mouth(hp);
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.075, 12, 9), F, sx * 0.285, 0.105, -0.02, { sx: 0.85, sy: 0.9, sz: 0.55, rz: sx * 0.32, mat: 'soft' }));
-      hp.push(p(sphere(0.048, 8, 6), FD, sx * 0.30, 0.10, 0.008, { sx: 0.8, sy: 0.85, sz: 0.3, rz: sx * 0.32, mat: 'soft' }));
-      hp.push(p(sphere(0.055, 10, 8), FL, sx * 0.17, -0.02, 0.235, { sx: 0.9, sy: 0.7, sz: 0.5, mat: 'soft' }));   // cheek tufts
+      hp.push(p(box(0.13, 0.15, 0.07), F, sx * 0.33, 0.20, -0.04, { rz: sx * 0.34, mat: 'toy' }));   // ear
+      hp.push(p(box(0.08, 0.09, 0.04), FD, sx * 0.35, 0.19, -0.005, { rz: sx * 0.34, mat: 'toy' })); // inner ear
+      hp.push(p(box(0.14, 0.10, 0.06), FL, sx * 0.20, -0.06, 0.28, { mat: 'toy' }));                 // cheek
     }
-    head.add(build(texBy(hp, HTEX, 3)));
-    // 2D face card: eyes and mouth, swapped for expressions
+    head.add(build(hp, { flat: true }));
+
+    // 2D face card: eyes and brows, swapped for expressions
     const faceMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.faceTexture('neutral'), transparent: true, alphaTest: 0.35, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 2.25, HR * 0.70), faceMat);
-    face.position.set(0, 0.105, HR * 0.885); face.renderOrder = 2;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.60, 0.19), faceMat);
+    face.position.set(0, 0.07, 0.253); face.renderOrder = 2;
     head.add(face);
-    // beanie
-    const hat = new THREE.Group(); hat.position.set(0, 0.16, -0.03);
+
+    // --- beanie: a faceted cap, four panels, no sphere in sight ---
+    const hat = new THREE.Group(); hat.position.set(0, 0.20, -0.01);
     const cols = [P.hatA, P.hatB, P.hatC, P.hatD];
     const hpr = [];
-    for (let i = 0; i < 4; i++) hpr.push(p(sphere(0.215, 10, 7, { phiS: i * Math.PI / 2, phiL: Math.PI / 2, thetaL: Math.PI / 2 }), cols[i], 0, 0, 0, { sy: 0.72, sx: 1.06, sz: 1.02, mat: 'soft' }));
-    hpr.push(p(torus(0.222, 0.026, 6, 22), P.hatB, 0, 0.006, 0, { rx: Math.PI / 2, sx: 1.04, sy: 1.0 }));
-    hpr.push(p(cyl(0.019, 0.025, 0.085, 8), '#b9bfc9', 0, 0.16, 0, { mat: 'metal' }));
-    hat.add(build(texBy(hpr, { [P.hatA]: 'cloth', [P.hatB]: 'cloth', [P.hatC]: 'cloth', [P.hatD]: 'cloth' }, 3)));
+    hpr.push(p(box(0.70, 0.13, 0.54), P.hatB, 0, 0.0, 0, { mat: 'toy' }));            // brim band
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      hpr.push(p(wedge(0.40, 0.20, 0.34), cols[i], Math.cos(a) * 0.13, 0.14, Math.sin(a) * 0.11, { ry: a, mat: 'toy' }));
+    }
+    hpr.push(p(box(0.05, 0.10, 0.05), '#b9bfc9', 0, 0.28, 0, { mat: 'metal' }));       // spindle
+    hat.add(build(hpr, { flat: true }));
     head.add(hat);
-    const prop = new THREE.Group(); prop.position.set(0, 0.345, -0.03);
-    const pp = [p(sphere(0.034, 8, 6), P.hatB, 0, 0, 0, { mat: 'shiny' })];
-    for (const sx of [-1, 1]) pp.push(p(roundedBox(0.2, 0.015, 0.052, 0.007), P.prop, sx * 0.118, 0.004, 0, { rz: sx * 0.2, ry: sx * 0.14, mat: 'shiny' }));
-    prop.add(build(pp));
+
+    const prop = new THREE.Group(); prop.position.set(0, 0.53, -0.01);
+    const pp = [p(box(0.07, 0.05, 0.07), P.hatB, 0, 0, 0, { mat: 'toy' })];
+    for (const sx of [-1, 1]) pp.push(p(box(0.22, 0.02, 0.06), P.prop, sx * 0.13, 0.005, 0, { rz: sx * 0.16, ry: sx * 0.2, mat: 'toy' }));
+    prop.add(build(pp, { flat: true }));
     head.add(prop);
     g.add(head);
 
-    // short thick arms
+    // --- arms: blocks, angled out ---
     const arms = [];
     for (const sx of [-1, 1]) {
-      const a = new THREE.Group(); a.position.set(sx * 0.36, 0.66, 0.04);
-      a.add(build(texBy([
-        p(capsule(0.105, 0.19), F, sx * 0.1, -0.03, 0, { rz: sx * 1.2, mat: 'soft' }),
-        p(sphere(0.115, 12, 9), FD, sx * 0.24, -0.07, 0.02, { mat: 'soft' }),
-        ...[-1, 0, 1].map((i) => p(sphere(0.025, 6, 5), P.claw, sx * 0.31, -0.07 + i * 0.048, 0.07, { sz: 1.4 })),
-      ], HTEX, 4)));
+      const a = new THREE.Group(); a.position.set(sx * 0.32, 0.72, 0.04);
+      a.add(build([
+        p(box(0.21, 0.36, 0.22), F, sx * 0.05, -0.13, 0, { rz: sx * 0.30, mat: 'toy' }),
+        p(box(0.21, 0.15, 0.23), FD, sx * 0.14, -0.31, 0.02, { rz: sx * 0.30, mat: 'toy' }),   // paw
+        ...[-1, 0, 1].map((i) => p(box(0.04, 0.05, 0.07), P.claw, sx * 0.16 + i * 0.055, -0.35, 0.11, { mat: 'toy' })),
+      ], { flat: true }));
       g.add(a); arms.push(a);
     }
+
     let expr = 'neutral', blinkT = 2 + Math.random() * 3;
     g.userData = {
       head, arms, wings: arms, prop, body: bodyG, hat, face,
@@ -836,7 +855,7 @@ FW.Models = (() => {
   }
 
   return { p, build, geoOf, mergeParts, roundedBox, sphere, capsule, cyl, cone, torus, blob, shade,
-    hero, duck, scooter, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
+    hero, duck, scooter, box, wedge, bear, critter, CRITTERS, waffle, TOPPINGS, toppingMesh,
     firGeo, pineGeo, cedarGeo, sequoiaGeo, oakGeo, snagGeo, deadfallGeo, fernGeo, grassGeo, bushGeo, rockGeo, flowerGeo, mushroomGeo, stumpGeo, fenceGeo, guardrailGeo, roadSign, mileMarker, quad, card, car, CAR_KINDS,
     shack, cabin, rangerStation, tent, campfire, picnicTable, signpost, marker, token, airRing, arrowSign };
 })();

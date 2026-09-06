@@ -105,8 +105,10 @@ buttons appear automatically.
 
 ## Tech
 - Vanilla JavaScript + [Three.js](https://threejs.org) r158 (vendored in `vendor/`).
-- **Realistic rendering.** Characters and props are built from spheres, capsules, tori
-  and rounded boxes, merged per material family so a whole character is 1–3 draw calls.
+- **Low-poly characters, lit scenes.** The wombat is flat-shaded boxes and wedges — the
+  merge can emit per-face normals, so every plane catches the light differently and a
+  simple shape reads as solid. Props and buildings still use rounded boxes, capsules and
+  tori, all merged per material family so a whole character is 1-3 draw calls.
   The scene is lit with a sun, a sky/ground hemisphere, a fill light and a procedurally
   generated IBL probe, rendered at full resolution with soft shadow maps, tone-mapped
   with ACES, then pushed through a bright-pass bloom and a composite that adds a warm
