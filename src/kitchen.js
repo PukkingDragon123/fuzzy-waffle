@@ -13,10 +13,15 @@ FW.Kitchen = class {
     this.camera = new THREE.PerspectiveCamera(FW.Pixel.fitFov(46), FW.Pixel.size.aspect, 0.1, 60);
     // tap a station and the camera slides over to it
     this.stations = {
-      wide:  { pos: new THREE.Vector3(0.4, 3.25, 3.75), look: new THREE.Vector3(0.4, 1.05, -0.55), fov: 52 },
+      // The wide shot must keep the fridge reachable — pulled in tighter it
+      // slid off the right edge and there was no way to tap through to it.
+      wide:  { pos: new THREE.Vector3(0.4, 3.10, 3.70), look: new THREE.Vector3(0.4, 1.22, -0.55), fov: 54 },
       prep:  { pos: new THREE.Vector3(-1.0, 2.35, 1.95), look: new THREE.Vector3(-1.15, 1.05, -0.15), fov: 44 },
       cook:  { pos: new THREE.Vector3(0.35, 2.4, 1.85), look: new THREE.Vector3(0.2, 1.06, -0.25), fov: 42 },
       plate: { pos: new THREE.Vector3(2.1, 2.4, 2.0), look: new THREE.Vector3(2.15, 1.04, -0.2), fov: 44 },
+      // The fridge gets its own station. Shared with 'plate' the jars ended up
+      // a few pixels across on a phone and you could not reliably tap one.
+      fridge: { pos: new THREE.Vector3(3.05, 2.05, 1.15), look: new THREE.Vector3(3.42, 1.42, -1.05), fov: 40 },
     };
     this.station = 'wide';
     this.camPos = this.stations.wide.pos.clone();
@@ -202,17 +207,20 @@ FW.Kitchen = class {
         ...[-1, 0, 1].map((i) => V.p(V.sphere(0.062, 10, 8), '#fff5e0', i * 0.09, 0.13, 0, { sy: 1.3, mat: 'soft' }))]),
       milk: () => V.build([V.p(V.cyl(0.1, 0.11, 0.28, 12), '#f2f6ff', 0, 0.14, 0, { mat: 'shiny' }), V.p(V.cyl(0.05, 0.06, 0.09, 10), '#f2f6ff', 0, 0.32, 0, { mat: 'shiny' }), V.p(V.cyl(0.06, 0.06, 0.04, 10), '#4a7fd6', 0, 0.38, 0)]),
     };
-    const ingPos = [['flour', -0.4, 1.79], ['sugar', 0.0, 1.79], ['egg', 0.4, 1.79], ['milk', -0.4, 1.23]];
+    // Two per shelf, well apart. Three across a shelf put the hit spheres
+    // 0.02 apart at the edges, so a fingertip regularly grabbed the jar next
+    // to the one you aimed at.
+    const ingPos = [['flour', -0.34, 1.79], ['sugar', 0.34, 1.79], ['egg', -0.34, 1.23], ['milk', 0.34, 1.23]];
     for (const [id, x, y] of ingPos) {
       const g = ING_MODELS[id]();
       // sit them on the fridge shelves, in the fridge's own frame
       g.position.set(3.5 + Math.cos(-0.34) * x - Math.sin(-0.34) * 0.12, y, -1.5 + Math.sin(-0.34) * x + Math.cos(-0.34) * 0.12);
       g.rotation.y = -0.34;
-      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true, station: 'plate' }, 0.19, 0.14);
+      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true, station: 'fridge' }, 0.19, 0.14);
       this.fridgeItems.push(g);
     }
     // toppings live in the fridge door racks + a counter tray
-    reg(fridge, { kind: 'fridge', label: 'Fridge', station: 'plate' }, 0.9, 1.3);
+    reg(fridge, { kind: 'fridge', label: 'Fridge', station: 'fridge' }, 0.9, 1.3);
     this.fridge = fridge;
 
     // --- bowl ---
@@ -515,6 +523,7 @@ FW.Kitchen = class {
   beginWaffle() {
     this.cur = { counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, whisk: 0, stirs: 0, smooth: 0, flip: 0, cook: 0, toppings: new Set(), doneness: 0.5 };
     this.state = 'mixing'; this.cook = 0; this.addPitch = 0; this.held = null;
+    this.goTo('fridge');
     this.batter.visible = false; this.batter.material.color.set('#f7e6b8');
     this.ironBatter.visible = false; this.ironWaffle.visible = false; this.plateWaffle.visible = false;
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
@@ -633,6 +642,7 @@ FW.Kitchen = class {
     this.tween(this.bowl, 'position', { x: -1.25, y: this.TOP, z: 0.3 }, 0.45, null, FW.Kitchen.easeBack);
     this.tween(this.lid, 'rotation', { x: 0 }, 0.36, () => {
       this.state = 'cooking'; this.cook = 0;
+      this.goTo('cook');
       this.ironLight.material.color.set('#e5564a');
       FW.Audio.setSizzle(1); FW.Audio.sfx.clack();
       this.pop(this.ironG, 9);
@@ -661,6 +671,7 @@ FW.Kitchen = class {
       this.tween(this.plateWaffle, 'position', { x: 1.15, y: this.TOP + 0.055, z: 0.3 }, 0.46, () => {
         this.pop(this.plateWaffle, 14); FW.Audio.sfx.plop();
         this.state = 'topping'; this.addPitch = 0;
+        this.goTo('plate');
         this.hint('Tap a <b>topping</b>, then tap the <b>waffle</b> to place it. Then tap the <b>box</b>');
       }, FW.Kitchen.easeBack);
     });
@@ -760,7 +771,7 @@ FW.Kitchen = class {
     if (!this.stations[station] || this.station === station) return;
     this.station = station;
     // walking away from the fridge shuts it, the way you would
-    if (station !== 'plate') this.toggleFridge(false);
+    if (station !== 'fridge') this.toggleFridge(false);
     FW.Audio.sfx.pick();
   }
   tap(hitObj, point, m) {
@@ -845,11 +856,14 @@ FW.Kitchen = class {
     // slide toward the tapped station, with a little pointer parallax
     {
       const st = this.stations[this.station];
-      const k = 1 - Math.exp(-3.4 * dt);
+      const k = 1 - Math.exp(-5.2 * dt);
       this.camPos.lerp(st.pos, k);
       this.camLook.lerp(st.look, k);
-      this.camFov = U.damp(this.camFov, st.fov, 3.4, dt);
+      this.camFov = U.damp(this.camFov, st.fov, 5.2, dt);
       const px = U.clamp(m.nx, -1, 1) * 0.16, py = U.clamp(m.ny, -1, 1) * 0.09;
+      // No aspect dolly indoors: the stations already sit close to the front
+      // wall, so pulling back to recover horizontal coverage puts the camera
+      // outside the house. The wide fov fit carries it instead.
       this.camera.position.set(this.camPos.x + px, this.camPos.y + py, this.camPos.z);
       this.camera.lookAt(this.camLook);
       FW.Pixel.setFov(this.camera, this.camFov);

@@ -63,7 +63,6 @@ FW.Pixel = (() => {
 
   function init(canvas) {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
-    renderer.setPixelRatio(LOWRES ? 1 : Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -123,10 +122,23 @@ FW.Pixel = (() => {
     const a = aspect || size.aspect || BASE_ASPECT;
     if (a >= BASE_ASPECT) return fov;
     const h = 2 * Math.atan(Math.tan((fov * Math.PI / 180) / 2) * BASE_ASPECT);   // the horizontal angle we want to keep
-    // Capped only to stop the projection degenerating on absurd aspect ratios;
-    // a phone genuinely needs most of this compensation, and anything tighter
-    // puts you back to staring at a wall.
+    // Capped only to stop the projection degenerating. Tighter caps look
+    // better framed but cost horizontal coverage, and indoors that puts the
+    // fridge off the side of the screen where you cannot tap it — a room has
+    // no space to dolly back and recover it.
     return Math.min(100, 2 * Math.atan(Math.tan(h / 2) / a) * 180 / Math.PI);
+  }
+  // How much further back a camera must sit to still see the same horizontal
+  // extent it saw at 16:9. It is 1 whenever fitFov could compensate fully, and
+  // grows once the fov cap bites — which is what puts the fridge off the side
+  // of a portrait phone if you only widen the lens.
+  function dollyFactor(fov, aspect) {
+    const a = aspect || size.aspect || BASE_ASPECT;
+    if (a >= BASE_ASPECT) return 1;
+    const rad = Math.PI / 180;
+    const hDesign = Math.tan((fov * rad) / 2) * BASE_ASPECT;
+    const hActual = Math.tan((fitFov(fov, a) * rad) / 2) * a;
+    return Math.max(1, hDesign / hActual);
   }
   // set a camera's fov in design terms; the fit is applied for you
   function setFov(cam, fov) {
@@ -143,8 +155,11 @@ FW.Pixel = (() => {
     size.scale = h / size.H;
     size.W = Math.ceil(w / size.scale);
     size.aspect = size.W / size.H;
-    renderer.setSize(w, h, false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    // Pixel ratio first, then setSize with updateStyle ON so three writes the
+    // CSS size too. Passing false left the canvas sized by its attributes
+    // (viewport x DPR), i.e. 1.6x too big on every phone.
+    renderer.setPixelRatio(LOWRES ? 1 : Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setSize(w, h, true);
     for (const t of [rt, brightRT, blurA, blurB]) if (t) t.dispose();
     const opts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, type: THREE.HalfFloatType, colorSpace: THREE.SRGBColorSpace, depthBuffer: true, samples: 2 };
     rt = new THREE.WebGLRenderTarget(size.W, size.H, opts);
@@ -721,7 +736,7 @@ FW.Pixel = (() => {
   }
 
   return { init, render, size, fam, mat, vmat, flat, textTexture, stripeTexture, chevronTexture, spiralTexture,
-    fitFov, setFov, foliageTexture, UVCELL, surfaceTexture, surfTex, surfMat, SURF, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
+    fitFov, setFov, dollyFactor, foliageTexture, UVCELL, surfaceTexture, surfTex, surfMat, SURF, woodTexture, tileTexture, wallpaperTexture, concreteTexture, signTexture, noiseCanvas, groundDetail, roadTexture, faceTexture,
     get renderer() { return renderer; }, get envOutdoor() { return envOutdoor; }, get envIndoor() { return envIndoor; } };
 })();
 

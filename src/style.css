@@ -21,7 +21,12 @@ html,body{touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:10
 #game,#hud{touch-action:none;-webkit-tap-highlight-color:transparent}
 /* the two overlays that can be taller than a phone screen still scroll */
 #title,#panel .inner{touch-action:pan-y;overscroll-behavior:contain}
-#game{position:fixed;inset:0;display:block;background:#a5d8f3;cursor:default}
+/* A canvas is a replaced element: with only inset:0 its laid-out size comes
+   from its width/height ATTRIBUTES, which three.js sets to viewport x DPR.
+   Without these two declarations the canvas is laid out 1.6x the screen on
+   any phone and you see the top-left crop — the game looks permanently
+   zoomed in and there is no way to pinch out of it. */
+#game{position:fixed;inset:0;width:100%;height:100%;display:block;background:#a5d8f3;cursor:default}
 #hud{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 #hud>*{position:absolute}
 #ticket,#stats,#compass,#timer,#meter,#waffles,#drift,#minimap,#mess{display:none!important}
@@ -138,8 +143,8 @@ b{color:var(--line)}
 }
 /* hint */
 #hint{left:50%;bottom:16px;transform:translateX(-50%);font-size:15px;font-weight:500;letter-spacing:.01em;
-  color:rgba(244,236,222,.95);background:rgba(14,10,7,.88);padding:9px 22px;border-radius:6px;
-  border:1px solid rgba(214,190,150,.2);box-shadow:0 10px 30px rgba(0,0,0,.65);
+  color:#f3ead9;background:#141009;padding:9px 22px;border-radius:6px;
+  border:1px solid rgba(214,190,150,.26);box-shadow:0 10px 30px rgba(0,0,0,.7);
   white-space:nowrap;backdrop-filter:blur(8px);animation:hintIn .4s ease-out}
 #hint b{color:var(--gold);font-weight:700}
 /* with the on-screen wheel and pedals up, the hint bar sat on top of them */
