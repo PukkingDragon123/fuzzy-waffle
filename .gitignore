@@ -1,4 +1,8 @@
 node_modules/
-dist/
+# The single-file build is committed so it can be played straight from a
+# static host (raw.githack.com) — an artifact iframe cannot lock page zoom,
+# a top-level document can. Everything else in dist/ stays ignored.
+dist/*
+!dist/flippin-waffles.html
 .DS_Store
 *.log

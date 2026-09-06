@@ -31,6 +31,14 @@ grain. Asphalt, concrete, timber and stone are all real textures. **There is alm
 floating UI** — the order ticket lives on a tablet propped on the kitchen counter and
 the nav lives on the phone on your scooter, so you read the game inside the world.
 
+**Play it in a browser:**
+https://raw.githack.com/PukkingDragon123/fuzzy-waffle/claude/cozy-waffle-delivery-game-mlio5j/dist/flippin-waffles.html
+
+That link serves `dist/flippin-waffles.html` as a normal top-level page. Play it
+there rather than in an embed on a phone: a `<meta name="viewport">` has no effect
+inside an iframe, so the zoom lock and the safe-area handling only take hold when
+the game is the top-level document.
+
 No build step and nothing to install: open `index.html`, or serve the folder
 (`npm start`). Three.js ships in the repo.
 
