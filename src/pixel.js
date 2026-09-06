@@ -66,13 +66,13 @@ FW.Pixel = (() => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.94;
+    renderer.toneMappingExposure = 1.02;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.10 }, levels: { value: 52.0 }, vignette: { value: 0.30 }, warm: { value: 1.0 }, sat: { value: 0.94 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.10 }, levels: { value: 52.0 }, vignette: { value: 0.22 }, warm: { value: 1.0 }, sat: { value: 0.94 } } });
     brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.94 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
@@ -610,7 +610,7 @@ FW.Pixel = (() => {
     const g = c.getContext('2d');
     g.clearRect(0, 0, W, H);
     const ink = '#171210';
-    const EY = 92, EX = 116, R = 21;
+    const EY = 90, EX = 104, R = 28;
     // pale patch behind each eye: dark ink on dark fur reads as nothing without it
     const patch = (x, y, r) => {
       const gr = g.createRadialGradient(x, y - 2, r * 0.15, x, y, r * 1.6);
@@ -620,8 +620,10 @@ FW.Pixel = (() => {
     const dot = (x, y, r, sq = 1) => {
       patch(x, y, r * 1.4);
       g.fillStyle = ink; g.beginPath(); g.ellipse(x, y, r, r * sq, 0, 0, 7); g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.72)';
-      g.beginPath(); g.ellipse(x + r * 0.33, y - r * sq * 0.34, r * 0.24, r * 0.24, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.92)';
+      g.beginPath(); g.ellipse(x + r * 0.30, y - r * sq * 0.32, r * 0.34, r * 0.34, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.55)';
+      g.beginPath(); g.ellipse(x - r * 0.32, y + r * sq * 0.34, r * 0.16, r * 0.16, 0, 0, 7); g.fill();
     };
     // a closed / squinting eye: an arc, cupped up for a smile or down for a blink
     const arc = (x, y, r, up) => {

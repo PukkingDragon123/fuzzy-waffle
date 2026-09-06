@@ -170,7 +170,7 @@ FW.Models = (() => {
     g.add(bodyG);
 
     // head: broad, sitting low on the shoulders
-    const head = new THREE.Group(); head.position.set(0, 0.92, 0.1);
+    const head = new THREE.Group(); head.position.set(0, 0.90, 0.11); head.scale.setScalar(1.14);
     const HR = 0.29;
     const hp = [];
     // Head: broad and flat on top, much wider than it is tall, with a squared
@@ -625,41 +625,96 @@ FW.Models = (() => {
     }
     return parts;
   }
+  // The Waffle Shack. Rebuilt as a proper little cottage: boarded siding with
+  // corner posts, a real front door with a step and a lamp, a service hatch
+  // that has a warm interior behind it instead of a black hole, and a roof
+  // that sits on the walls rather than looming over them like a bread bin.
   function shack() {
     const g = new THREE.Group();
-    const C = '#fff3dc';
-    const parts = [
-      p(roundedBox(7.2, 3.6, 5.6, 0.55), C, 0, 1.8, 0, { mat: 'soft' }),
-      p(roundedBox(7.4, 0.4, 5.8, 0.18), P.brown, 0, 0.18, 0),
-      p(cyl(0.22, 0.26, 3.6, 8), P.wood, -3.5, 1.8, 2.7),
-      p(cyl(0.22, 0.26, 3.6, 8), P.wood, 3.5, 1.8, 2.7),
-      // service window
-      p(roundedBox(4.4, 2.0, 0.4, 0.24), '#3d2c1e', 0, 2.0, 2.75),
-      p(roundedBox(4.8, 0.36, 0.7, 0.16), P.wood, 0, 1.05, 2.95),
-      p(roundedBox(4.9, 0.22, 0.55, 0.1), P.gold, 0, 3.15, 2.95),
-      // round windows
-      p(cyl(0.62, 0.62, 0.3, 14), '#a5d8f3', -2.6, 2.1, 2.82, { rx: Math.PI / 2, mat: 'shiny' }),
-      p(torus(0.66, 0.11, 6, 16), C, -2.6, 2.1, 2.86),
-      p(cyl(0.62, 0.62, 0.3, 14), '#a5d8f3', 2.6, 2.1, 2.82, { rx: Math.PI / 2, mat: 'shiny' }),
-      p(torus(0.66, 0.11, 6, 16), C, 2.6, 2.1, 2.86),
-      // chimney
-      p(cyl(0.36, 0.42, 2.4, 10), P.granite[0], 2.2, 4.6, -1.2),
-      p(cyl(0.5, 0.46, 0.3, 10), P.granite[2], 2.2, 5.9, -1.2),
-      // flower boxes
-      p(roundedBox(1.5, 0.34, 0.4, 0.12), P.wood2, -2.6, 1.35, 3.05),
-      p(roundedBox(1.5, 0.34, 0.4, 0.12), P.wood2, 2.6, 1.35, 3.05),
-    ];
-    for (const bx of [-2.6, 2.6]) for (let i = 0; i < 3; i++) { const cs = ['#ffb3b3', '#fff6a8', '#c9a0f0']; parts.push(p(sphere(0.16, 8, 6), cs[i], bx - 0.45 + i * 0.45, 1.62, 3.05, { sy: 0.7, mat: 'soft' })); }
-    parts.push(...barrelRoof(8.2, 6.6, 1.7, P.red, '#c9463c', 3.6));
-    g.add(build(texBy(parts, { [C]: 'paint', [P.brown]: 'wood', [P.wood]: 'wood', [P.wood2]: 'wood', [P.red]: 'paint', '#c9463c': 'paint', '#3d2c1e': 'wood' }, 5)));
-    // giant waffle sign on the roof
-    const w = waffle(1.5); w.position.set(-1.5, 6.15, 0.5); w.rotation.set(-1.32, 0.28, 0.12); g.add(w);
-    const berry = new THREE.Mesh(sphere(0.2, 10, 8), FW.Pixel.mat('#e8434d', { roughness: 0.5 })); berry.position.set(-1.34, 6.35, 0.72); berry.castShadow = true; g.add(berry);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.0), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture("FLIPPIN' WAFFLES", { w: 512, h: 112, font: 'bold 58px monospace', fg: '#8a4b1a', bg: '#fff3dc', border: '#e5564a', radius: 24 }), transparent: true }));
-    sign.position.set(0, 3.35, 2.98); g.add(sign);
-    const s2 = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: FW.Pixel.textTexture('DELIVERY BY WOMBAT', { w: 384, h: 80, font: 'bold 36px monospace', fg: '#fff3dc', bg: '#e5564a', border: '#8a4b1a', radius: 18 }), transparent: true }));
-    s2.position.set(2.0, 4.6, 1.4); s2.rotation.set(-0.3, -0.4, 0.1); g.add(s2);
-    g.userData.chimney = new THREE.Vector3(2.2, 6.1, -1.2);
+    const C = '#f2e2c4', CD = '#dcc9a6', TRIM = '#b8503f';
+    const W = 7.2, D = 5.6, WALL = 3.0;
+    const parts = [];
+    // ---- shell and siding ----
+    parts.push(p(roundedBox(W, WALL, D, 0.16), C, 0, WALL / 2 + 0.3, 0, { mat: 'soft', tex: 'paint', rep: 5 }));
+    parts.push(p(roundedBox(W + 0.5, 0.42, D + 0.5, 0.1), '#7a5636', 0, 0.2, 0, { mat: 'soft', tex: 'wood', rep: 7 }));  // plinth
+    // horizontal boards, front and both sides, so the walls are not blank
+    for (let i = 0; i < 7; i++) {
+      const y = 0.55 + i * 0.4;
+      parts.push(p(roundedBox(W + 0.05, 0.34, 0.07, 0.03), i % 2 ? CD : C, 0, y, D / 2 + 0.02, { mat: 'soft', tex: 'wood', rep: 9 }));
+      parts.push(p(roundedBox(0.07, 0.34, D + 0.05, 0.03), i % 2 ? CD : C, -W / 2 - 0.02, y, 0, { mat: 'soft', tex: 'wood', rep: 7 }));
+      parts.push(p(roundedBox(0.07, 0.34, D + 0.05, 0.03), i % 2 ? CD : C, W / 2 + 0.02, y, 0, { mat: 'soft', tex: 'wood', rep: 7 }));
+    }
+    // corner posts
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      parts.push(p(roundedBox(0.3, WALL + 0.3, 0.3, 0.08), '#8a6440', sx * (W / 2 + 0.02), WALL / 2 + 0.35, sz * (D / 2 + 0.02), { mat: 'soft', tex: 'wood', rep: 1 }));
+    }
+    // ---- service hatch: a recess with a lit back wall, not a void ----
+    const HW = 3.4, HH = 1.5, HY = 1.85;
+    parts.push(p(roundedBox(HW + 0.24, HH + 0.24, 0.14, 0.05), '#8a6440', 0, HY, D / 2 + 0.05, { mat: 'soft', tex: 'wood', rep: 3 }));   // frame
+    parts.push(p(roundedBox(HW, HH, 0.1, 0.04), '#d9a05e', 0, HY, D / 2 - 0.02, { mat: 'soft', tex: 'wood', rep: 3 }));                  // lit interior
+    parts.push(p(roundedBox(HW - 0.5, HH - 0.5, 0.1, 0.04), '#8a5a34', 0, HY + 0.12, D / 2 - 0.12, { mat: 'soft', tex: 'wood', rep: 2 })); // depth behind it
+    parts.push(p(roundedBox(HW + 0.5, 0.26, 0.9, 0.08), '#8a6440', 0, HY - HH / 2 - 0.1, D / 2 + 0.16, { mat: 'soft', tex: 'wood', rep: 4 }));  // sill
+    parts.push(p(roundedBox(HW + 0.4, 0.22, 0.3, 0.07), TRIM, 0, HY + HH / 2 + 0.12, D / 2 + 0.04, { mat: 'soft', tex: 'paint', rep: 4 }));     // lintel
+    // a waffle and a mug left out on the sill
+    parts.push(p(cyl(0.34, 0.34, 0.11, 14), '#e0a84e', -1.0, HY - HH / 2 + 0.06, D / 2 + 0.3, { mat: 'soft' }));
+    parts.push(p(cyl(0.16, 0.14, 0.24, 12), '#f0ece2', 0.9, HY - HH / 2 + 0.12, D / 2 + 0.3, { mat: 'soft', tex: 'ceramic', rep: 2 }));
+    // striped awning over the hatch
+    for (let i = 0; i < 9; i++) {
+      parts.push(p(roundedBox(HW / 9 + 0.06, 0.12, 1.5, 0.05), i % 2 ? '#e8ded0' : TRIM,
+        -HW / 2 + (i + 0.5) * (HW / 9), HY + HH / 2 + 0.6, D / 2 + 0.62, { rx: 0.42, mat: 'soft', tex: 'cloth', rep: 2 }));
+    }
+    for (const sx of [-1, 1]) parts.push(p(capsule(0.05, 0.9), '#6d6a62', sx * (HW / 2 + 0.05), HY + HH / 2 + 0.42, D / 2 + 0.34, { rx: 0.75, mat: 'metal' }));
+    // ---- front door, step and lamp ----
+    const DX = 2.55;
+    parts.push(p(roundedBox(1.24, 2.2, 0.16, 0.07), '#8f4a36', DX, 1.4, D / 2 + 0.08, { mat: 'soft', tex: 'paint', rep: 2 }));
+    parts.push(p(roundedBox(1.44, 2.4, 0.1, 0.05), '#e8ded0', DX, 1.45, D / 2 + 0.02, { mat: 'soft', tex: 'wood', rep: 2 }));
+    for (const dy of [0.9, 1.9]) parts.push(p(roundedBox(0.84, 0.68, 0.05, 0.05), '#7d4030', DX, dy, D / 2 + 0.17, { mat: 'soft' }));   // panels
+    parts.push(p(sphere(0.09, 8, 6), P.gold, DX + 0.42, 1.4, D / 2 + 0.2, { mat: 'metal' }));
+    parts.push(p(roundedBox(1.7, 0.2, 0.8, 0.06), '#9a9188', DX, 0.36, D / 2 + 0.5, { mat: 'soft', tex: 'ceramic', rep: 3 }));           // step
+    parts.push(p(capsule(0.05, 0.34), '#3d3a34', DX + 0.95, 2.5, D / 2 + 0.16, { mat: 'metal' }));
+    parts.push(p(cone(0.22, 0.3, 8), '#3d3a34', DX + 0.95, 2.82, D / 2 + 0.16, { mat: 'metal' }));
+    // ---- round windows, warm inside ----
+    for (const wx of [-2.55, 0]) {
+      if (wx === 0) continue;
+      parts.push(p(cyl(0.62, 0.62, 0.16, 16), '#ffd9a0', wx, 2.15, D / 2 + 0.12, { rx: Math.PI / 2, mat: 'soft' }));
+      parts.push(p(torus(0.66, 0.11, 6, 18), '#e8ded0', wx, 2.15, D / 2 + 0.18, { mat: 'soft', tex: 'wood', rep: 2 }));
+      parts.push(p(roundedBox(1.2, 0.07, 0.06, 0.02), '#e8ded0', wx, 2.15, D / 2 + 0.2, { mat: 'soft' }));
+      parts.push(p(roundedBox(0.07, 1.2, 0.06, 0.02), '#e8ded0', wx, 2.15, D / 2 + 0.2, { mat: 'soft' }));
+      // window box with real blooms
+      parts.push(p(roundedBox(1.5, 0.36, 0.42, 0.1), '#7a5636', wx, 1.34, D / 2 + 0.34, { mat: 'soft', tex: 'wood', rep: 3 }));
+      const cs = ['#e0708a', '#f2c766', '#b98cd8', '#e8917a'];
+      for (let i = 0; i < 5; i++) {
+        parts.push(p(sphere(0.13, 8, 6), cs[i % 4], wx - 0.56 + i * 0.28, 1.6, D / 2 + 0.34, { sy: 0.75, mat: 'soft' }));
+        parts.push(p(sphere(0.1, 6, 5), '#4f7d4a', wx - 0.5 + i * 0.28, 1.53, D / 2 + 0.42, { sy: 0.6, mat: 'soft' }));
+      }
+    }
+    // ---- brick chimney ----
+    parts.push(p(roundedBox(0.8, 2.2, 0.8, 0.06), '#9c5a48', 2.2, 4.15, -1.2, { mat: 'soft', tex: 'card', rep: 3 }));
+    parts.push(p(roundedBox(1.0, 0.24, 1.0, 0.06), '#8a8078', 2.2, 5.35, -1.2, { mat: 'soft', tex: 'ceramic', rep: 2 }));
+    // ---- roof: lower, and sitting on the walls ----
+    parts.push(...barrelRoof(W + 0.9, D + 0.9, 1.25, TRIM, '#9c4436', WALL + 0.32));
+    g.add(build(texBy(parts, { [C]: 'paint', [CD]: 'paint' }, 5)));
+
+    // ---- signs and the roof waffle, standing up so it reads as a waffle ----
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.0), new THREE.MeshBasicMaterial({
+      map: FW.Pixel.textTexture("FLIPPIN' WAFFLES", { w: 512, h: 112, font: 'bold 58px monospace', fg: '#7d4030', bg: '#f2e2c4', border: TRIM, radius: 24 }), transparent: true }));
+    board.position.set(-0.9, HY + HH / 2 + 1.35, D / 2 + 0.1); g.add(board);
+    const w = waffle(1.6);
+    w.position.set(-2.1, WALL + 2.4, 0.55); w.rotation.set(Math.PI / 2 - 0.12, 0, 0.08);   // top face toward the viewer
+    g.add(w);
+    const berry = new THREE.Mesh(sphere(0.22, 10, 8), FW.Pixel.mat('#c14a52', { roughness: 0.65 }));
+    berry.position.set(-2.05, WALL + 2.62, 0.72); berry.castShadow = true; g.add(berry);
+    for (const sx of [-1, 1]) {
+      const post = new THREE.Mesh(cyl(0.09, 0.11, 1.5, 8), FW.Pixel.mat('#6d6a62', { roughness: 0.8, metalness: 0.3 }));
+      post.position.set(-2.1 + sx * 0.5, WALL + 1.6, 0.5); g.add(post);
+    }
+    const s2 = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({
+      map: FW.Pixel.textTexture('DELIVERY BY WOMBAT', { w: 384, h: 80, font: 'bold 36px monospace', fg: '#f2e2c4', bg: TRIM, border: '#7d4030', radius: 18 }), transparent: true }));
+    s2.position.set(DX - 0.05, 3.05, D / 2 + 0.62); s2.rotation.set(-0.16, 0, 0); g.add(s2);
+    // warm light spilling out of the hatch and the door lamp
+    const glow = new THREE.PointLight('#ffbe72', 2.2, 7, 2); glow.position.set(0, HY, D / 2 - 0.2); g.add(glow);
+    const lamp = new THREE.PointLight('#ffd9a0', 1.1, 4, 2); lamp.position.set(DX + 0.95, 2.7, D / 2 + 0.3); g.add(lamp);
+    g.userData.chimney = new THREE.Vector3(2.2, 5.6, -1.2);
     return g;
   }
   function cabin(roof = '#4f7d4a') {

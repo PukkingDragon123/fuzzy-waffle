@@ -23,6 +23,15 @@ FW.Kitchen = class {
       // a few pixels across on a phone and you could not reliably tap one.
       fridge: { pos: new THREE.Vector3(3.05, 2.05, 1.15), look: new THREE.Vector3(3.42, 1.42, -1.05), fov: 40 },
     };
+    // Third-person: you walk the wombat along the galley strip behind the
+    // counter. Tap or click a spot to walk there; tap a thing to walk to it
+    // and use it on arrival; WASD steers directly and cancels the target.
+    this.walk = {
+      pos: new THREE.Vector3(0.4, 0, -1.5),
+      vel: new THREE.Vector3(),
+      yaw: 0, target: null, pending: null, bob: 0,
+    };
+    this.WALK = { x0: -4.1, x1: 4.1, z0: -2.15, z1: -0.85 };
     this.station = 'wide';
     this.camPos = this.stations.wide.pos.clone();
     this.camLook = this.stations.wide.look.clone();
@@ -85,9 +94,9 @@ FW.Kitchen = class {
     const sc = key.shadow.camera; sc.left = -4.2; sc.right = 4.2; sc.top = 3.2; sc.bottom = -2.6; sc.near = 1; sc.far = 15;
     key.shadow.bias = -0.0007; key.shadow.normalBias = 0.02; key.shadow.radius = 3;
     S.add(key, key.target);
-    S.add(new THREE.HemisphereLight('#b9c9dc', '#6b5741', 0.22));
+    S.add(new THREE.HemisphereLight('#c6d4e4', '#8a7050', 0.40));   // enough sky bounce to read the ceiling
     const rim = new THREE.DirectionalLight('#9dbde0', 0.26); rim.position.set(2.8, 2.4, -3); S.add(rim);
-    this.lampLight = new THREE.PointLight('#ffb268', 3.4, 6.2, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
+    this.lampLight = new THREE.PointLight('#ffb268', 4.2, 7.5, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
 
     const texMat = (tex, opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ map: tex, roughness: 0.85, metalness: 0 }, opts));
     // painted, glazed, brushed and woven surfaces all come off the one atlas
@@ -97,8 +106,16 @@ FW.Kitchen = class {
       m.position.set(x, y, z); m.receiveShadow = true; m.castShadow = true; S.add(m); return m;
     };
     // --- floor, walls, skirting ---
-    const floorTex = FW.Pixel.woodTexture(); floorTex.repeat.set(5, 4);
-    slab(12, 0.3, 8.5, texMat(floorTex, { roughness: 0.7 }), 0, -0.15, -0.6, 0.04);
+    const floorTex = FW.Pixel.woodTexture(); floorTex.repeat.set(6, 6);
+    slab(13, 0.3, 13, texMat(floorTex, { roughness: 0.7 }), 0, -0.15, 0.6, 0.04);
+    // A low cottage ceiling. At full wall height it sat too far from the lamp
+    // and read as a black band; down here it catches the light and the room
+    // feels snug instead of like a hall.
+    const ceilTex = FW.Pixel.woodTexture(['#cbae86', '#bfa079', '#d4b891', '#b5966f']); ceilTex.repeat.set(6, 6);
+    slab(13, 0.3, 13, texMat(ceilTex, { roughness: 0.92 }), 0, 3.68, 0.6, 0.04);
+    for (let i = -3; i <= 3; i++) {
+      slab(12.6, 0.22, 0.30, SM('#9a7a52', 'wood', 14, 1), 0, 3.46, i * 1.7 + 0.6, 0.05);
+    }
     const wallTex = FW.Pixel.wallpaperTexture(); wallTex.repeat.set(6, 3);
     slab(12, 4.8, 0.4, texMat(wallTex, { roughness: 0.95 }), 0, 2.4, -2.55, 0.06);
     const tileTex = FW.Pixel.tileTexture(); tileTex.repeat.set(2.6, 0.75);
@@ -216,11 +233,11 @@ FW.Kitchen = class {
       // sit them on the fridge shelves, in the fridge's own frame
       g.position.set(3.5 + Math.cos(-0.34) * x - Math.sin(-0.34) * 0.12, y, -1.5 + Math.sin(-0.34) * x + Math.cos(-0.34) * 0.12);
       g.rotation.y = -0.34;
-      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true, station: 'fridge' }, 0.19, 0.14);
+      reg(g, { kind: 'ing', id, label: FW.Orders.ING[id].name, inFridge: true, station: 'fridge', stand: [3.15, -0.95] }, 0.19, 0.14);
       this.fridgeItems.push(g);
     }
     // toppings live in the fridge door racks + a counter tray
-    reg(fridge, { kind: 'fridge', label: 'Fridge', station: 'fridge' }, 0.9, 1.3);
+    reg(fridge, { kind: 'fridge', label: 'Fridge', station: 'fridge', stand: [3.15, -0.95] }, 0.9, 1.3);
     this.fridge = fridge;
 
     // --- bowl ---
@@ -340,14 +357,10 @@ FW.Kitchen = class {
 
     // --- the wombat chef ---
     // a wombat is a low animal — it needs a step to reach the counter
-    const step = V.build([
-      V.p(V.roundedBox(1.15, 0.42, 0.7, 0.06), '#b07c4a', 0, 0.21, 0, { mat: 'soft', tex: 'wood', rep: 3 }),
-      V.p(V.roundedBox(1.2, 0.07, 0.75, 0.03), '#c9945e', 0, 0.44, 0, { tex: 'wood', rep: 3 }),
-      V.p(V.roundedBox(1.0, 0.06, 0.6, 0.02), '#96663a', 0, 0.06, 0, { tex: 'wood', rep: 3 }),
-    ]);
-    step.position.set(0.9, 0, -1.12); S.add(step);
+    // No step stool any more — it sat in the middle of the walkable strip.
+    // The wombat is scaled up instead so it can reach the counter.
     this.chef = V.hero({});
-    this.chef.position.set(0.9, 0.48, -1.12); this.chef.scale.setScalar(1.5); S.add(this.chef);
+    this.chef.position.copy(this.walk.pos); this.chef.scale.setScalar(1.5); S.add(this.chef);
     this.chefSq = new FW.Kart.Spring(1, 200, 12);
     const chefKey = new THREE.PointLight('#ffe2b8', 1.5, 3.2, 2); chefKey.position.set(0.85, 2.2, 0.15); S.add(chefKey);
 
@@ -523,7 +536,6 @@ FW.Kitchen = class {
   beginWaffle() {
     this.cur = { counts: { flour: 0, sugar: 0, egg: 0, milk: 0 }, whisk: 0, stirs: 0, smooth: 0, flip: 0, cook: 0, toppings: new Set(), doneness: 0.5 };
     this.state = 'mixing'; this.cook = 0; this.addPitch = 0; this.held = null;
-    this.goTo('fridge');
     this.batter.visible = false; this.batter.material.color.set('#f7e6b8');
     this.ironBatter.visible = false; this.ironWaffle.visible = false; this.plateWaffle.visible = false;
     for (const k in this.toppingMeshes) this.plateWaffle.remove(this.toppingMeshes[k]);
@@ -532,7 +544,7 @@ FW.Kitchen = class {
     this.ironPivot.rotation.x = 0; this.lid.rotation.x = -2.45; this.ironLight.material.color.set('#552222');
     this.whisk.visible = true; this.whisk.position.set(this.bowl.position.x, this.TOP + 0.06, this.bowl.position.z);
     const r = this.order.waffles[this.index].recipe;
-    this.hint(`Waffle ${this.index + 1}/${this.order.waffles.length}: <b>${FW.HUD.esc(r.name)}</b> — tap the <b>fridge</b> for ingredients`);
+    this.hint(`Waffle ${this.index + 1}/${this.order.waffles.length}: <b>${FW.HUD.esc(r.name)}</b> — walk to the <b>fridge</b> (tap it, or WASD) and press <b>Space</b>`);
     this.progress();
     FW.Audio.sfx.bell();
   }
@@ -642,7 +654,6 @@ FW.Kitchen = class {
     this.tween(this.bowl, 'position', { x: -1.25, y: this.TOP, z: 0.3 }, 0.45, null, FW.Kitchen.easeBack);
     this.tween(this.lid, 'rotation', { x: 0 }, 0.36, () => {
       this.state = 'cooking'; this.cook = 0;
-      this.goTo('cook');
       this.ironLight.material.color.set('#e5564a');
       FW.Audio.setSizzle(1); FW.Audio.sfx.clack();
       this.pop(this.ironG, 9);
@@ -671,7 +682,6 @@ FW.Kitchen = class {
       this.tween(this.plateWaffle, 'position', { x: 1.15, y: this.TOP + 0.055, z: 0.3 }, 0.46, () => {
         this.pop(this.plateWaffle, 14); FW.Audio.sfx.plop();
         this.state = 'topping'; this.addPitch = 0;
-        this.goTo('plate');
         this.hint('Tap a <b>topping</b>, then tap the <b>waffle</b> to place it. Then tap the <b>box</b>');
       }, FW.Kitchen.easeBack);
     });
@@ -745,6 +755,101 @@ FW.Kitchen = class {
     }
   }
 
+  // ---------- walking ----------
+  // Where you should stand to use a thing: level with it, on the working side
+  // of the counter. The fridge is deeper into the room, so it says so itself.
+  standSpotFor(obj) {
+    const d = obj.userData || {};
+    if (d.stand) return { x: d.stand[0], z: d.stand[1] };
+    const p = new THREE.Vector3();
+    (d.proxy ? obj : obj).getWorldPosition(p);
+    return { x: FW.U.clamp(p.x, this.WALK.x0, this.WALK.x1), z: -1.45 };
+  }
+  walkTo(x, z, pending = null) {
+    const W = this.WALK;
+    this.walk.target = { x: FW.U.clamp(x, W.x0, W.x1), z: FW.U.clamp(z, W.z0, W.z1) };
+    this.walk.pending = pending;
+  }
+  // the interactable you are standing next to, if any
+  nearest() {
+    let best = null, bd = 1.35;
+    for (const o of this.taps) {
+      if (!o.visible) continue;
+      const k = o.userData.kind;
+      if (k === 'ing' && !this.fridgeOpen) continue;
+      const p = new THREE.Vector3(); o.getWorldPosition(p);
+      const d = Math.hypot(p.x - this.walk.pos.x, (p.z - this.walk.pos.z) * 0.55);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+  updateWalk(dt, inp) {
+    const U = FW.U, W = this.WALK, w = this.walk;
+    const SPEED = 3.1;
+    // keyboard/stick steering takes over and drops any walk-to target
+    let ix = (inp.held('right') ? 1 : 0) - (inp.held('left') ? 1 : 0);
+    let iz = (inp.held('down') ? 1 : 0) - (inp.held('up') ? 1 : 0);
+    if (inp.virtual) { ix += inp.virtual.steer || 0; iz -= inp.virtual.throttle || 0; }
+    ix = U.clamp(ix, -1, 1); iz = U.clamp(iz, -1, 1);
+    let dx = 0, dz = 0;
+    if (ix || iz) {
+      w.target = null; w.pending = null;
+      const l = Math.hypot(ix, iz) || 1;
+      dx = (ix / l) * SPEED; dz = (iz / l) * SPEED;
+    } else if (w.target) {
+      const tx = w.target.x - w.pos.x, tz = w.target.z - w.pos.z;
+      const d = Math.hypot(tx, tz);
+      if (d < 0.16) {
+        const p = w.pending; w.target = null; w.pending = null;
+        if (p) this.arrive(p);
+      } else {
+        const ease = Math.min(1, d / 0.7);          // ease in to the last step
+        dx = (tx / d) * SPEED * ease; dz = (tz / d) * SPEED * ease;
+      }
+    }
+    // spring the velocity so starts and stops have some weight
+    w.vel.x = U.damp(w.vel.x, dx, 12, dt);
+    w.vel.z = U.damp(w.vel.z, dz, 12, dt);
+    w.pos.x = U.clamp(w.pos.x + w.vel.x * dt, W.x0, W.x1);
+    w.pos.z = U.clamp(w.pos.z + w.vel.z * dt, W.z0, W.z1);
+    const sp = Math.hypot(w.vel.x, w.vel.z);
+    if (sp > 0.12) w.yaw = U.angleLerp(w.yaw, Math.atan2(w.vel.x, w.vel.z), 1 - Math.exp(-11 * dt));
+    w.bob += sp * dt * 3.4;
+    // drive the model: waddle, lean into the turn, squash on each footfall
+    const c = this.chef;
+    c.position.set(w.pos.x, w.pos.y + Math.abs(Math.sin(w.bob)) * 0.055 * Math.min(1, sp), w.pos.z);
+    c.rotation.y = w.yaw;
+    c.rotation.z = Math.sin(w.bob) * 0.05 * Math.min(1, sp / SPEED);
+    const f = c.userData;
+    if (f && f.arms) {
+      const swing = Math.sin(w.bob) * 0.5 * Math.min(1, sp / SPEED);
+      f.arms[0].rotation.x = swing; f.arms[1].rotation.x = -swing;
+    }
+    // wander off and the fridge swings shut behind you
+    if (this.fridgeOpen && Math.hypot(w.pos.x - 3.15, w.pos.z + 0.95) > 2.1) this.toggleFridge(false);
+    this.walkSpeed = sp;
+  }
+  // reached what you were walking to — use it
+  arrive(obj) {
+    if (!obj || !obj.parent) return;
+    const p = new THREE.Vector3(); obj.getWorldPosition(p);
+    this.tap(obj, p, this.lastM || { nx: 0, ny: 0, x: 0, y: 0 });
+  }
+  updateFollowCam(dt, m) {
+    const U = FW.U, w = this.walk;
+    // over the counter, slightly to the outside of wherever the wombat is
+    const tx = w.pos.x * 0.70, ty = 2.80, tz = 2.95;
+    const lx = w.pos.x * 0.88, ly = 1.24, lz = w.pos.z + 0.35;
+    const k = 1 - Math.exp(-6.5 * dt);
+    this.camPos.lerp(new THREE.Vector3(tx, ty, tz), k);
+    this.camLook.lerp(new THREE.Vector3(lx, ly, lz), k);
+    this.camFov = U.damp(this.camFov, 50, 5, dt);
+    const px = U.clamp(m.nx, -1, 1) * 0.1, py = U.clamp(m.ny, -1, 1) * 0.06;
+    this.camera.position.set(this.camPos.x + px, this.camPos.y + py, this.camPos.z);
+    this.camera.lookAt(this.camLook);
+    FW.Pixel.setFov(this.camera, this.camFov);
+  }
+
   // ---------- input ----------
   pickAt(m) {
     this.ray.setFromCamera({ x: m.nx, y: m.ny }, this.camera);
@@ -767,18 +872,26 @@ FW.Kitchen = class {
     this.ray.setFromCamera({ x: m.nx, y: m.ny }, this.camera);
     return this.ray.ray.intersectPlane(this.plane, this.hit) ? this.hit.clone() : null;
   }
-  goTo(station) {
-    if (!this.stations[station] || this.station === station) return;
-    this.station = station;
-    // walking away from the fridge shuts it, the way you would
-    if (station !== 'fridge') this.toggleFridge(false);
-    FW.Audio.sfx.pick();
+  // Kept so old call sites are harmless; the camera follows the wombat now.
+  goTo(station) { this.station = station; }
+  // A tap on the world walks the wombat; the interaction happens on arrival.
+  // tap() itself is the "use it" half, reached either from arrive() or from
+  // the interact key when you are already stood next to something.
+  tapWorld(hitObj, point, m) {
+    if (hitObj) {
+      const s = this.standSpotFor(hitObj);
+      const near = Math.hypot(this.walk.pos.x - s.x, this.walk.pos.z - s.z) < 0.55;
+      if (near) this.tap(hitObj, point, m);
+      else this.walkTo(s.x, s.z, hitObj);
+      return;
+    }
+    // empty space: walk to it, on the working side of the counter
+    const p = this.planePoint(m, 0.02);
+    if (p) this.walkTo(p.x, p.z);
   }
   tap(hitObj, point, m) {
     const d = hitObj ? hitObj.userData : null;
     const kind = d ? d.kind : null;
-    if (d && d.station) this.goTo(d.station);
-    else if (!kind) this.goTo('wide');
     // holding the sponge: taps wipe
     if (this.held === 'sponge') {
       if (kind === 'mess') { this.wipe(d.mess); return; }
@@ -849,25 +962,30 @@ FW.Kitchen = class {
       this.hover = hov;
       document.getElementById('game').style.cursor = hov ? 'pointer' : 'default';
     }
-    FW.HUD.tooltip(hov ? (this.held === 'sponge' && hov.userData.kind === 'mess' ? 'Wipe' : hov.userData.label) : '', m.x, m.y);
-    if (tapNow) this.tap(hov, cur && cur.point, m);
-    if (inp.pressed('flip')) { if (this.state === 'cooking') this.lift(); else if (this.state === 'mixing') this.tap(this.bowl, null, m); }
-
-    // slide toward the tapped station, with a little pointer parallax
-    {
-      const st = this.stations[this.station];
-      const k = 1 - Math.exp(-5.2 * dt);
-      this.camPos.lerp(st.pos, k);
-      this.camLook.lerp(st.look, k);
-      this.camFov = U.damp(this.camFov, st.fov, 5.2, dt);
-      const px = U.clamp(m.nx, -1, 1) * 0.16, py = U.clamp(m.ny, -1, 1) * 0.09;
-      // No aspect dolly indoors: the stations already sit close to the front
-      // wall, so pulling back to recover horizontal coverage puts the camera
-      // outside the house. The wide fov fit carries it instead.
-      this.camera.position.set(this.camPos.x + px, this.camPos.y + py, this.camPos.z);
-      this.camera.lookAt(this.camLook);
-      FW.Pixel.setFov(this.camera, this.camFov);
+    // The prompt is anchored on whatever you are stood next to, so it works
+    // the same whether you are on a phone with no cursor or at a keyboard.
+    const near = this.nearest();
+    this.nearObj = near;
+    if (near) {
+      const wp = new THREE.Vector3(); near.getWorldPosition(wp);
+      wp.y += 0.34; wp.project(this.camera);
+      const sx = (wp.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-wp.y * 0.5 + 0.5) * window.innerHeight;
+      const label = this.held === 'sponge' && near.userData.kind === 'mess' ? 'Wipe' : near.userData.label;
+      FW.HUD.tooltip(label, sx - 40, sy - 46);
+    } else {
+      FW.HUD.tooltip(hov ? hov.userData.label : '', m.x, m.y);
     }
+    this.lastM = m;
+    if (tapNow) this.tapWorld(hov, cur && cur.point, m);
+    // Space / E uses whatever you are stood next to — the third-person verb
+    if (inp.pressed('hop') || inp.pressed('trick')) {
+      const n = this.nearest();
+      if (n) { const p = new THREE.Vector3(); n.getWorldPosition(p); this.tap(n, p, m); }
+    }
+
+    this.updateWalk(dt, inp);
+    this.updateFollowCam(dt, m);
     if (this.phone) { this.phone.update(dt); }
     // the sponge follows the cursor while held
     if (this.held === 'sponge') {

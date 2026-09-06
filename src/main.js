@@ -201,7 +201,7 @@
     if (G.state === 'title') return;
     G.paused = !G.paused;
     if (G.paused) {
-      HUD.panel(`<h2>Paused</h2><div>Day ${save.day} · ${save.coins} coins</div><div class="quote">Kitchen: tap the fridge, tap ingredients in, tap the bowl to stir and again to pour · lift the waffle when the iron's lamp goes green · tap a topping then the waffle · tap the box<br>Scooter: WASD/arrows · Space hop &amp; drift · Shift trick · H honk · R rescue</div>`,
+      HUD.panel(`<h2>Paused</h2><div>Day ${save.day} · ${save.coins} coins</div><div class="quote">Kitchen: walk with WASD or tap a spot · Space uses what you are next to · fridge for ingredients, bowl to stir then pour, lift the waffle when the iron's lamp goes green, then a topping and the box<br>Scooter: WASD/arrows · Space hop &amp; drift · Shift trick · H honk · R rescue</div>`,
         [{ label: 'Resume', onClick: togglePause }, { label: A.muted ? 'Unmute' : 'Mute', cls: 'alt', onClick: () => { A.setMuted(!A.muted); togglePause(); togglePause(); } }, { label: 'Reset save', cls: 'ghost', onClick: () => { if (confirm('Start over from Day 1?')) { save = defaultSave(); persist(); location.reload(); } } }]);
     } else HUD.closePanel();
   }

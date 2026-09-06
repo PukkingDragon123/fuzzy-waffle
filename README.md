@@ -10,10 +10,12 @@ Falls, Bridalveil, Mirror Lake, Camp 4, Curry Village and Glacier Point roughly 
 a map puts them. Traffic drives the loop, steel guardrails line the drops, and the
 phone clipped to your handlebars navigates you there like a maps app, route line and all.
 
-Cook each order by hand, all by tapping: open the fridge, tap ingredients into the bowl,
-tap to stir until the lumps are gone, tap the iron to pour, and lift the waffle out when
-it *looks* golden — there is no timing bar anywhere, you judge it by the colour, the
-steam and the smell. Spills and splatter stay on the counter as real mess; grab the
+Cook each order by hand, in **third person**. You walk the wombat up and down the
+galley behind the counter — **WASD**, or tap where you want it to go — and **Space**
+uses whatever it is stood next to. Tap a thing and it walks over and uses it for you.
+Open the fridge, carry ingredients to the bowl, stir until the lumps are gone, pour onto
+the iron, and lift the waffle out when it *looks* golden — there is no timing bar
+anywhere, you judge it by the colour, the steam and the smell. Spills and splatter stay on the counter as real mess; grab the
 sponge and wipe them whenever you like (a spotless kitchen tips better).
 
 Then load the box onto your scooter and race the valley Mario-Kart style: drift-boosting,
