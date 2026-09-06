@@ -837,17 +837,19 @@ FW.World = (() => {
     sky.renderOrder = -10; scene.add(sky);
     sunDisc = new THREE.Mesh(new THREE.CircleGeometry(40, 16), new THREE.MeshBasicMaterial({ color: '#fff6d8', fog: false, toneMapped: false }));
     scene.add(sunDisc);
-    sun = new THREE.DirectionalLight(0xffffff, 3.1);
+    // A low, warm sun with real shadow contrast — late-afternoon light in a
+    // steep valley, not a flat overcast studio.
+    sun = new THREE.DirectionalLight(0xffe6c4, 2.6);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 10; sc.far = 300;
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3.2;
     scene.add(sun, sun.target);
-    // The valley is meant to read as a dark forest, not an unlit one: anything
-    // the sun does not reach was falling to near-black and you could not see
-    // the road. Lift the sky bounce and the fill so shade stays legible.
-    fill = new THREE.DirectionalLight('#9fb8d4', 0.55); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
-    hemi = new THREE.HemisphereLight(0xc6dcef, 0x7d7862, 1.0); scene.add(hemi);
-    scene.fog = new THREE.FogExp2(0xcbd3d4, 0.0042);
+    // Shade is cool and dim but never black — enough sky bounce to read the
+    // road, not so much that it flattens the trees into a single green wash.
+    fill = new THREE.DirectionalLight('#8ea6c2', 0.34); fill.position.set(-1, 0.6, -0.8); scene.add(fill);
+    hemi = new THREE.HemisphereLight(0xa9c2da, 0x5f5648, 0.62); scene.add(hemi);
+    // denser, warmer haze so distance falls away instead of staying crisp
+    scene.fog = new THREE.FogExp2(0xa8aa9c, 0.0062);
     scene.environment = FW.Pixel.envOutdoor;
     for (let i = 0; i < 14; i++) {
       const g = new THREE.Group(), n = 3 + Math.floor(rand() * 3);

@@ -64,6 +64,16 @@ FW.Input = (() => {
     hop: ['Space'], trick: ['ShiftLeft', 'ShiftRight', 'KeyE'], honk: ['KeyH'], pause: ['Escape'], reset: ['KeyR'], mute: ['KeyM'],
     enter: ['Enter', 'NumpadEnter'], flip: ['Space', 'KeyF'],
   };
+  // The artifact host builds its own <head>, so a viewport meta written in the
+  // page can be ignored or overridden. Assert it at runtime — without this the
+  // zoom lock never reaches a phone.
+  (() => {
+    const want = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+    let m = document.querySelector('meta[name="viewport"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+    if (m.content !== want) m.content = want;
+  })();
+
   const mouse = { x: 0, y: 0, nx: 0, ny: 0, down: false, clicked: false, moved: false };
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;

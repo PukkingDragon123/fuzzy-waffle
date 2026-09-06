@@ -43,17 +43,21 @@ FW.Pixel = (() => {
       c += texture2D(tBloom, vUv).rgb * bloom;
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, sat);
-      // warm filmic lift: shadows toward plum, highlights toward butter
-      vec3 lift = vec3(0.035, 0.020, 0.045) * warm;
-      vec3 gain = vec3(1.020, 1.000, 0.960);
+      // Warm, contrasty grade. The old one lifted the shadows toward plum,
+      // which greyed everything out; this keeps the blacks black, pulls a
+      // little amber into the mids and leaves the highlights alone.
+      vec3 lift = vec3(0.012, 0.008, 0.014) * warm;
+      vec3 gain = vec3(1.045, 1.000, 0.930);
       c = (c + lift * (1.0 - c)) * mix(vec3(1.0), gain, warm);
       c = clamp(c, 0.0, 1.0);
+      c = clamp((c - 0.5) * 1.09 + 0.5, 0.0, 1.0);         // filmic S, gentle
+      c = pow(c, vec3(1.03, 1.025, 1.01));                 // sit the mids down
       // fine film grain instead of colour quantisation
       vec2 p = gl_FragCoord.xy;
       float g = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
       c += (g - 0.5) * 0.016;
       float v = distance(vUv, vec2(0.5)) ;
-      c *= 1.0 - vignette * smoothstep(0.42, 0.95, v);
+      c *= 1.0 - vignette * smoothstep(0.46, 1.05, v);
       gl_FragColor = vec4(c, 1.0);
     }`;
 
@@ -63,13 +67,13 @@ FW.Pixel = (() => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.98;
+    renderer.toneMappingExposure = 0.94;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     postScene = new THREE.Scene();
     postMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: POST, depthTest: false, depthWrite: false,
-      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.15 }, levels: { value: 52.0 }, vignette: { value: 0.26 }, warm: { value: 1.0 }, sat: { value: 1.04 } } });
+      uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, bloom: { value: 0.10 }, levels: { value: 52.0 }, vignette: { value: 0.30 }, warm: { value: 1.0 }, sat: { value: 0.94 } } });
     brightMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BRIGHT, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, threshold: { value: 0.94 } } });
     blurMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } } });
     quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
@@ -181,25 +185,27 @@ FW.Pixel = (() => {
   const cache = {};
   function fam(name) {
     if (cache[name]) return cache[name];
-    const base = { vertexColors: true, envMapIntensity: 0.75 };
+    const base = { vertexColors: true, envMapIntensity: 0.32 };
     let m;
     switch (name) {
-      case 'soft': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.78, metalness: 0.0 }); break;
-      case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.32, metalness: 0.04, envMapIntensity: 1.05 }); break;
-      case 'metal': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.26, metalness: 0.9, envMapIntensity: 1.2 }); break;
+      case 'soft': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.96, metalness: 0.0 }); break;
+      // "shiny" now means satin, not lacquer — a painted appliance, not plastic
+      case 'shiny': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.66, metalness: 0.02, envMapIntensity: 0.42 }); break;
+      // and metal is worn steel: still metal, but brushed rather than chromed
+      case 'metal': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.55, metalness: 0.75, envMapIntensity: 0.55 }); break;
       case 'glow': m = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }); break;
-      case 'glass': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.08, metalness: 0.0, transparent: true, opacity: 0.55, envMapIntensity: 1.4 }); break;
-      case 'shell': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.34, metalness: 0.02, side: THREE.DoubleSide, envMapIntensity: 1.0 }); break;
+      case 'glass': m = new THREE.MeshStandardMaterial({ ...base, roughness: 0.16, metalness: 0.0, transparent: true, opacity: 0.42, envMapIntensity: 0.7 }); break;
+      case 'shell': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.62, metalness: 0.02, side: THREE.DoubleSide, envMapIntensity: 0.4 }); break;
       case 'shellMatte': m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide }); break;
       // cut-out foliage: every leaf card and every trunk shares one atlas, so a
       // whole forest chunk is a single draw call
-      case 'leafy': m = new THREE.MeshStandardMaterial({ ...base, map: foliageTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.94, metalness: 0, envMapIntensity: 0.5 }); break;
+      case 'leafy': m = new THREE.MeshStandardMaterial({ ...base, map: foliageTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.99, metalness: 0, envMapIntensity: 0.22 }); break;
       default: m = new THREE.MeshStandardMaterial({ ...base, map: surfaceTexture(), roughness: 0.95, metalness: 0.0 });
     }
     return (cache[name] = m);
   }
-  const mat = (color, opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0, envMapIntensity: 0.75 }, opts));
-  const vmat = (opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.7 }, opts));
+  const mat = (color, opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.96, metalness: 0, envMapIntensity: 0.3 }, opts));
+  const vmat = (opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, roughness: 0.97, metalness: 0, envMapIntensity: 0.28 }, opts));
   const flat = (color, opts = {}) => new THREE.MeshBasicMaterial(Object.assign({ color, toneMapped: false }, opts));
 
   // ---------- textures ----------
@@ -276,7 +282,7 @@ FW.Pixel = (() => {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
       for (let i = 0; i < 200; i++) {
         const y = R(0, BH), h = R(1.2, 3.4), d = R(0.04, 0.15);
-        g.fillStyle = `rgba(90,60,35,${d.toFixed(3)})`;
+        g.fillStyle = `rgba(76,50,28,${(d * 1.9).toFixed(3)})`;
         g.beginPath(); g.moveTo(0, y);
         for (let x = 0; x <= BW; x += 32) g.lineTo(x, y + Math.sin((x / BW) * Math.PI * 2 + i) * 2.6);
         for (let x = BW; x >= 0; x -= 32) g.lineTo(x, y + h + Math.sin((x / BW) * Math.PI * 2 + i) * 2.6);
@@ -285,11 +291,11 @@ FW.Pixel = (() => {
       for (let i = 0; i < 3; i++) {
         const cx = R(60, BW - 60), cy = R(24, BH - 24);
         for (let r = 13; r > 1.5; r -= 2.2) {
-          g.strokeStyle = `rgba(70,45,25,${(0.05 + r * 0.007).toFixed(3)})`; g.lineWidth = 1.6;
+          g.strokeStyle = `rgba(62,40,22,${(0.10 + r * 0.014).toFixed(3)})`; g.lineWidth = 2.1;
           g.beginPath(); g.ellipse(cx, cy, r, r * 0.55, 0.4, 0, 7); g.stroke();
         }
       }
-      g.fillStyle = 'rgba(60,40,22,0.28)'; g.fillRect(0, 0, BW, 2); g.fillRect(0, BH - 2, BW, 2);
+      g.fillStyle = 'rgba(48,32,18,0.5)'; g.fillRect(0, 0, BW, 2.6); g.fillRect(0, BH - 2.6, BW, 2.6);
     },
     // roller mottle — soft, directionless, low frequency
     paint: (g) => {
@@ -298,7 +304,7 @@ FW.Pixel = (() => {
         const x = R(0, BW), y = R(0, BH), r = R(10, 34), dk = Math.random() < 0.5;
         for (const ox of [-BW, 0, BW]) {
           const gr = g.createRadialGradient(x + ox, y, 0, x + ox, y, r);
-          gr.addColorStop(0, dk ? 'rgba(0,0,0,0.022)' : 'rgba(255,255,255,0.03)');
+          gr.addColorStop(0, dk ? 'rgba(0,0,0,0.075)' : 'rgba(255,255,255,0.075)');
           gr.addColorStop(1, 'rgba(0,0,0,0)');
           g.fillStyle = gr; g.beginPath(); g.arc(x + ox, y, r, 0, 7); g.fill();
         }
@@ -308,10 +314,10 @@ FW.Pixel = (() => {
     ceramic: (g) => {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
       const gr = g.createLinearGradient(0, 0, 0, BH);
-      gr.addColorStop(0, 'rgba(255,255,255,0.42)'); gr.addColorStop(0.45, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.12)');
+      gr.addColorStop(0, 'rgba(255,255,255,0.30)'); gr.addColorStop(0.45, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.22)');
       g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
       for (let i = 0; i < 420; i++) {
-        g.fillStyle = `rgba(60,50,40,${R(0.04, 0.14).toFixed(3)})`;
+        g.fillStyle = `rgba(56,46,36,${R(0.09, 0.26).toFixed(3)})`;
         g.beginPath(); g.arc(R(0, BW), R(0, BH), R(1.4, 3.0), 0, 7); g.fill();
       }
     },
@@ -320,7 +326,7 @@ FW.Pixel = (() => {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, BW, BH);
       for (let i = 0; i < 420; i++) {
         const y = R(0, BH), h = R(1.2, 2.6);
-        g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${R(0.02, 0.08).toFixed(3)})` : `rgba(255,255,255,${R(0.03, 0.10).toFixed(3)})`;
+        g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${R(0.04, 0.14).toFixed(3)})` : `rgba(255,255,255,${R(0.04, 0.14).toFixed(3)})`;
         g.fillRect(-40, y, BW + 80, h);
       }
       const gr = g.createLinearGradient(0, 0, 0, BH);
@@ -333,10 +339,10 @@ FW.Pixel = (() => {
       const FL = 32;
       for (let x = 0; x < BW; x += FL) {
         const gr = g.createLinearGradient(x, 0, x + FL, 0);
-        gr.addColorStop(0, 'rgba(0,0,0,0.13)'); gr.addColorStop(0.42, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0.13)');
+        gr.addColorStop(0, 'rgba(0,0,0,0.22)'); gr.addColorStop(0.42, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0.22)');
         g.fillStyle = gr; g.fillRect(x, 0, FL, BH);
       }
-      for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(90,65,40,${R(0.03, 0.10).toFixed(3)})`; g.fillRect(R(0, BW), R(0, BH), R(4, 14), 2); }
+      for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(84,58,34,${R(0.06, 0.18).toFixed(3)})`; g.fillRect(R(0, BW), R(0, BH), R(4, 16), 2.2); }
     },
     // a plain over-under weave, big enough not to shimmer
     cloth: (g) => {
@@ -345,7 +351,7 @@ FW.Pixel = (() => {
       for (let y = 0; y < BH; y += S2) for (let x = 0; x < BW; x += S2) {
         const up = ((x / S2 + y / S2) & 1) === 0;
         const gr = g.createLinearGradient(x, y, up ? x + S2 : x, up ? y : y + S2);
-        gr.addColorStop(0, 'rgba(0,0,0,0.13)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0.13)');
+        gr.addColorStop(0, 'rgba(0,0,0,0.24)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0.24)');
         g.fillStyle = gr; g.fillRect(x, y, S2, S2);
       }
     },
@@ -355,8 +361,8 @@ FW.Pixel = (() => {
       for (let i = 0; i < 1500; i++) {
         const x = R(0, BW), y = R(-10, BH), len = R(9, 22), lean = R(-6, 6);
         g.strokeStyle = Math.random() < 0.55
-          ? `rgba(45,32,20,${R(0.05, 0.17).toFixed(3)})`
-          : `rgba(255,240,215,${R(0.05, 0.16).toFixed(3)})`;
+          ? `rgba(38,26,16,${R(0.09, 0.30).toFixed(3)})`
+          : `rgba(255,240,215,${R(0.08, 0.24).toFixed(3)})`;
         g.lineWidth = R(1.4, 3.0); g.lineCap = 'round';
         for (const oy of [-BH, 0, BH]) {
           g.beginPath(); g.moveTo(x, y + oy); g.quadraticCurveTo(x + lean * 0.5, y + oy + len * 0.6, x + lean, y + oy + len); g.stroke();
@@ -581,44 +587,48 @@ FW.Pixel = (() => {
   const _faces = {};
   function faceTexture(expr) {
     if (_faces[expr]) return _faces[expr];
-    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    // The wombat's muzzle and mouth are modelled now, so this card carries only
+    // the eyes and brows — a wide strip sitting on the broad forehead above the
+    // snout. Expressions read through eye shape and brow angle, which is both
+    // truer to the animal and calmer than a big cartoon grin.
+    const W = 512, H = 160, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
-    g.clearRect(0, 0, S, S);
-    const ink = '#221b18';
-    const EY = 96, EX = 62, R = 21;
-    // wombats have pale patches around the eyes, and they double as the
-    // contrast that makes dark ink dots readable against dark fur
+    g.clearRect(0, 0, W, H);
+    const ink = '#171210';
+    const EY = 92, EX = 116, R = 21;
+    // pale patch behind each eye: dark ink on dark fur reads as nothing without it
     const patch = (x, y, r) => {
-      const gr = g.createRadialGradient(x, y - 2, r * 0.2, x, y, r * 1.5);
-      gr.addColorStop(0, 'rgba(247,240,226,0.95)'); gr.addColorStop(0.6, 'rgba(240,230,212,0.7)'); gr.addColorStop(1, 'rgba(240,230,212,0)');
-      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.5, r * 1.35, 0, 0, 7); g.fill();
+      const gr = g.createRadialGradient(x, y - 2, r * 0.15, x, y, r * 1.6);
+      gr.addColorStop(0, 'rgba(238,228,210,0.9)'); gr.addColorStop(0.55, 'rgba(226,214,194,0.55)'); gr.addColorStop(1, 'rgba(226,214,194,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.7, r * 1.45, 0, 0, 7); g.fill();
     };
     const dot = (x, y, r, sq = 1) => {
-      patch(x, y, r * 1.35);
+      patch(x, y, r * 1.4);
       g.fillStyle = ink; g.beginPath(); g.ellipse(x, y, r, r * sq, 0, 0, 7); g.fill();
-      // catchlight
-      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.ellipse(x + r * 0.34, y - r * sq * 0.36, r * 0.28, r * 0.28, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.72)';
+      g.beginPath(); g.ellipse(x + r * 0.33, y - r * sq * 0.34, r * 0.24, r * 0.24, 0, 0, 7); g.fill();
     };
-    const arc = (x, y, r, up) => { patch(x, y, r * 1.5); g.strokeStyle = ink; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath(); g.arc(x, y + (up ? r * 0.6 : -r * 0.6), r, up ? Math.PI : 0, up ? 0 : Math.PI); g.stroke(); };
-    const brow = (x, y, a) => { g.strokeStyle = ink; g.lineWidth = 10; g.lineCap = 'round'; g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(-22, 0); g.lineTo(22, 0); g.stroke(); g.restore(); };
-    const mouth = (kind) => {
-      g.strokeStyle = ink; g.lineWidth = 11; g.lineCap = 'round'; g.fillStyle = ink;
-      const my = 176;
-      if (kind === 'smile') { g.beginPath(); g.arc(S / 2, my - 14, 26, 0.25, Math.PI - 0.25); g.stroke(); }
-      else if (kind === 'open') { g.beginPath(); g.ellipse(S / 2, my, 20, 24, 0, 0, 7); g.fill(); }
-      else if (kind === 'grin') { g.beginPath(); g.arc(S / 2, my - 20, 34, 0.3, Math.PI - 0.3); g.stroke(); }
-      else if (kind === 'flat') { g.beginPath(); g.moveTo(S / 2 - 22, my); g.lineTo(S / 2 + 22, my); g.stroke(); }
-      else if (kind === 'frown') { g.beginPath(); g.arc(S / 2, my + 22, 24, Math.PI + 0.3, -0.3); g.stroke(); }
+    // a closed / squinting eye: an arc, cupped up for a smile or down for a blink
+    const arc = (x, y, r, up) => {
+      patch(x, y, r * 1.5);
+      g.strokeStyle = ink; g.lineWidth = 12; g.lineCap = 'round';
+      g.beginPath(); g.arc(x, y + (up ? r * 0.55 : -r * 0.55), r, up ? Math.PI : 0, up ? 0 : Math.PI); g.stroke();
     };
+    const brow = (x, y, a) => {
+      g.strokeStyle = ink; g.lineWidth = 11; g.lineCap = 'round';
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.moveTo(-25, 0); g.lineTo(25, 0); g.stroke(); g.restore();
+    };
+    const L = W / 2 - EX, Rt = W / 2 + EX;
     switch (expr) {
-      case 'happy': arc(S / 2 - EX, EY, 20, true); arc(S / 2 + EX, EY, 20, true); mouth('smile'); break;
-      case 'joy': arc(S / 2 - EX, EY, 22, true); arc(S / 2 + EX, EY, 22, true); mouth('grin'); break;
-      case 'focus': dot(S / 2 - EX, EY, R, 0.62); dot(S / 2 + EX, EY, R, 0.62); brow(S / 2 - EX, EY - 34, 0.26); brow(S / 2 + EX, EY - 34, -0.26); mouth('flat'); break;
-      case 'worry': dot(S / 2 - EX, EY + 4, R * 0.92); dot(S / 2 + EX, EY + 4, R * 0.92); brow(S / 2 - EX, EY - 32, -0.34); brow(S / 2 + EX, EY - 32, 0.34); mouth('frown'); break;
-      case 'surprise': dot(S / 2 - EX, EY - 2, R * 1.2); dot(S / 2 + EX, EY - 2, R * 1.2); brow(S / 2 - EX, EY - 44, -0.1); brow(S / 2 + EX, EY - 44, 0.1); mouth('open'); break;
-      case 'blink': arc(S / 2 - EX, EY, 19, false); arc(S / 2 + EX, EY, 19, false); mouth('smile'); break;
-      case 'sad': dot(S / 2 - EX, EY + 6, R * 0.9); dot(S / 2 + EX, EY + 6, R * 0.9); brow(S / 2 - EX, EY - 30, -0.4); brow(S / 2 + EX, EY - 30, 0.4); mouth('frown'); break;
-      default: dot(S / 2 - EX, EY, R); dot(S / 2 + EX, EY, R); mouth('smile');
+      case 'happy':    arc(L, EY, 21, true); arc(Rt, EY, 21, true); break;
+      case 'joy':      arc(L, EY, 24, true); arc(Rt, EY, 24, true); brow(L, EY - 42, 0.18); brow(Rt, EY - 42, -0.18); break;
+      case 'focus':    dot(L, EY, R, 0.58); dot(Rt, EY, R, 0.58); brow(L, EY - 38, 0.30); brow(Rt, EY - 38, -0.30); break;
+      case 'worry':    dot(L, EY + 4, R * 0.92); dot(Rt, EY + 4, R * 0.92); brow(L, EY - 36, -0.36); brow(Rt, EY - 36, 0.36); break;
+      case 'surprise': dot(L, EY - 2, R * 1.22); dot(Rt, EY - 2, R * 1.22); brow(L, EY - 50, -0.08); brow(Rt, EY - 50, 0.08); break;
+      case 'blink':    arc(L, EY, 20, false); arc(Rt, EY, 20, false); break;
+      case 'sad':      dot(L, EY + 7, R * 0.88); dot(Rt, EY + 7, R * 0.88); brow(L, EY - 32, -0.44); brow(Rt, EY - 32, 0.44); break;
+      default:         dot(L, EY, R); dot(Rt, EY, R);
     }
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
@@ -719,7 +729,8 @@ FW.Pixel = (() => {
 FW.PAL = {
   duck: '#fffdf6', duckShade: '#f0e6d2', beak: '#f9a23f', beakDark: '#e0862a', eye: '#2a2320', blush: '#e8a08f', white: '#fffdf6',
   fur: '#b39a7c', furDark: '#8f7a60', furLight: '#cdb99c', nose: '#4a3f36', claw: '#ece5d9',
-  apron: '#e5564a', apronTrim: '#fff3dc', hatA: '#fff3dc', hatB: '#e5564a', hatC: '#f7c544', hatD: '#7fd1c0', prop: '#4fb3d9',
+  // muted to match the lamplit palette — the cream panel used to blow out
+  apron: '#a8443a', apronTrim: '#d8c6a6', hatA: '#cbb894', hatB: '#a8443a', hatC: '#c39a3e', hatD: '#5f9c8e', prop: '#3d7f9c',
   candy: '#ff8fb0', stick: '#fff3dc',
   mint: '#7fd1c0', mintDark: '#5cb6a5', steel: '#c8ccd8', cream: '#fff3dc', red: '#e5564a', gold: '#f7c544', brown: '#8a5a2b', wood: '#b07c4a', wood2: '#96663a',
   bear: '#7a5334', bearLight: '#9b7250', muzzle: '#d8b489', tan: '#c9a177',

@@ -35,9 +35,9 @@ FW.Models = (() => {
     const k = key('c', r, len, seg, rad); if (geoCache.has(k)) return geoCache.get(k);
     const g = new THREE.CapsuleGeometry(r, len, seg, rad); geoCache.set(k, g); return g;
   }
-  function cyl(rt, rb, h, seg = 12, open = false) {
-    const k = key('cy', rt, rb, h, seg, open); if (geoCache.has(k)) return geoCache.get(k);
-    const g = new THREE.CylinderGeometry(rt, rb, h, seg, 1, open); geoCache.set(k, g); return g;
+  function cyl(rt, rb, h, seg = 12, open = false, thetaS = 0, thetaL = Math.PI * 2) {
+    const k = key('cy', rt, rb, h, seg, open, thetaS, thetaL); if (geoCache.has(k)) return geoCache.get(k);
+    const g = new THREE.CylinderGeometry(rt, rb, h, seg, 1, open, thetaS, thetaL); geoCache.set(k, g); return g;
   }
   function cone(r, h, seg = 10) { return cyl(0.001, r, h, seg); }
   function torus(r, tube, rad = 8, tub = 12, arc) {
@@ -136,16 +136,20 @@ FW.Models = (() => {
     const sit = !!opts.sitting;
     const bodyG = new THREE.Group();
     const parts = [];
-    // torso: wide and heavy, tapering slightly to the shoulders
-    parts.push(p(sphere(0.4, 16, 12), F, 0, 0.44, 0, { sx: 1.16, sy: 1.02, sz: 1.0, mat: 'soft' }));
-    parts.push(p(sphere(0.33, 14, 10), F, 0, 0.72, -0.01, { sx: 1.0, sy: 0.78, sz: 0.94, mat: 'soft' }));
-    parts.push(p(sphere(0.3, 14, 10), FL, 0, 0.5, 0.22, { sx: 0.92, sy: 1.0, sz: 0.6, mat: 'soft' }));
-    parts.push(p(sphere(0.34, 12, 9), FD, 0, 0.56, -0.3, { sx: 1.02, sy: 0.9, sz: 0.55, mat: 'soft' }));
-    parts.push(p(sphere(0.08, 8, 6), FD, 0, 0.26, -0.4, { sz: 0.8, mat: 'soft' }));
+    // Torso on wombat lines, not teddy-bear lines: a low slung barrel that is
+    // wider than it is tall, heaviest at the hips, with almost no neck and a
+    // rump that rounds off flat (a wombat's rear is its armour).
+    parts.push(p(sphere(0.42, 16, 12), F, 0, 0.40, -0.02, { sx: 1.30, sy: 0.92, sz: 1.10, mat: 'soft' }));
+    parts.push(p(sphere(0.36, 14, 10), F, 0, 0.58, 0.04, { sx: 1.14, sy: 0.72, sz: 0.96, mat: 'soft' }));
+    parts.push(p(sphere(0.30, 14, 10), FL, 0, 0.40, 0.30, { sx: 1.00, sy: 0.94, sz: 0.52, mat: 'soft' }));
+    parts.push(p(sphere(0.40, 12, 9), FD, 0, 0.42, -0.32, { sx: 1.18, sy: 0.92, sz: 0.50, mat: 'soft' }));
     if (opts.apron !== false) {
-      parts.push(p(sphere(0.17, 14, 10), P.apron, 0, 0.6, 0.31, { sx: 1.12, sy: 1.3, sz: 0.4, mat: 'soft' }));
-      parts.push(p(cyl(0.47, 0.53, 0.3, 20, true), P.apron, 0, 0.22, 0.02, { sz: 0.92, mat: 'shell' }));
-      parts.push(p(torus(0.468, 0.026, 6, 24), P.apronTrim, 0, 0.07, 0.02, { rx: Math.PI / 2, sz: 0.92 }));
+      parts.push(p(roundedBox(0.30, 0.26, 0.10, 0.05), P.apron, 0, 0.60, 0.30, { rx: -0.12, mat: 'soft' }));       // bib
+      // a skirt panel that only wraps the front two thirds, hem trimmed
+      parts.push(p(cyl(0.505, 0.55, 0.28, 22, true, -1.15, 2.30), P.apron, 0, 0.33, 0.00, { sz: 0.90, mat: 'shell' }));
+      parts.push(p(cyl(0.548, 0.556, 0.045, 22, true, -1.15, 2.30), P.apronTrim, 0, 0.20, 0.00, { sz: 0.90, mat: 'shell' }));
+      // waist tie, front only, with the strings running back
+      parts.push(p(cyl(0.545, 0.565, 0.055, 22, true, -1.35, 2.70), P.apronTrim, 0, 0.50, 0.00, { sz: 0.90, mat: 'shell' }));
       parts.push(p(capsule(0.028, 0.22), P.apron, -0.18, 0.75, 0.25, { rx: -0.18, rz: -0.4 }));
       parts.push(p(capsule(0.028, 0.22), P.apron, 0.18, 0.75, 0.25, { rx: -0.18, rz: 0.4 }));
       parts.push(p(torus(0.07, 0.024, 6, 12), P.apronTrim, 0, 0.5, -0.44, { rz: 0.5 }));
@@ -154,11 +158,12 @@ FW.Models = (() => {
       parts.push(p(torus(0.06, 0.014, 6, 18), '#c98f2b', 0, 0.62, 0.4));
     }
     // short, thick legs
-    const fz = sit ? 0.28 : 0.06;
+    // Legs: stubby, set wide, splayed out — a wombat walks low and rolling.
+    const fz = sit ? 0.28 : 0.04;
     for (const sx of [-1, 1]) {
-      parts.push(p(capsule(0.11, sit ? 0.16 : 0.1), F, sx * 0.19, sit ? 0.22 : 0.16, fz, { rx: sit ? 1.05 : 0, mat: 'soft' }));
-      parts.push(p(sphere(0.135, 12, 8), FD, sx * 0.19, 0.06, fz + (sit ? 0.08 : 0.06), { sy: 0.55, sz: 1.3, mat: 'soft' }));
-      for (let i = -1; i <= 1; i++) parts.push(p(sphere(0.024, 6, 5), P.claw, sx * 0.19 + i * 0.048, 0.05, fz + (sit ? 0.19 : 0.17), { sz: 1.5 }));
+      parts.push(p(capsule(0.125, sit ? 0.14 : 0.06), F, sx * 0.26, sit ? 0.20 : 0.13, fz, { rx: sit ? 1.05 : 0, rz: sx * 0.16, mat: 'soft' }));
+      parts.push(p(sphere(0.145, 12, 8), FD, sx * 0.28, 0.05, fz + (sit ? 0.08 : 0.05), { sy: 0.5, sz: 1.35, ry: sx * 0.22, mat: 'soft' }));
+      for (let i = -1; i <= 1; i++) parts.push(p(capsule(0.019, 0.03), P.claw, sx * 0.28 + i * 0.05, 0.042, fz + (sit ? 0.19 : 0.16), { rx: 1.35 }));
     }
     const HTEX = { [F]: 'fur', [FD]: 'fur', [FL]: 'fur', [P.apron]: 'cloth', [P.apronTrim]: 'cloth' };
     bodyG.add(build(texBy(parts, HTEX, 4)));
@@ -168,20 +173,27 @@ FW.Models = (() => {
     const head = new THREE.Group(); head.position.set(0, 0.92, 0.1);
     const HR = 0.29;
     const hp = [];
-    hp.push(p(sphere(HR, 16, 12), F, 0, 0, 0, { sx: 1.12, sy: 0.94, sz: 0.98, mat: 'soft' }));
-    hp.push(p(sphere(0.2, 12, 9), FL, 0, -0.07, 0.17, { sx: 1.0, sy: 0.8, sz: 0.72, mat: 'soft' }));
-    hp.push(p(roundedBox(0.17, 0.1, 0.07, 0.035), P.nose, 0, -0.015, 0.3, { mat: 'shiny' }));
-    hp.push(p(sphere(0.018, 6, 5), '#141010', -0.046, -0.022, 0.335));
-    hp.push(p(sphere(0.018, 6, 5), '#141010', 0.046, -0.022, 0.335));
+    // Head: broad and flat on top, much wider than it is tall, with a squared
+    // muzzle and the big blunt bare nose a wombat actually has. The ears are
+    // small, rounded and set wide out on the corners — a bear's are tall and
+    // set high, which is what made this read as a teddy.
+    hp.push(p(sphere(HR, 16, 12), F, 0, 0, 0, { sx: 1.34, sy: 0.82, sz: 1.00, mat: 'soft' }));
+    hp.push(p(roundedBox(0.30, 0.19, 0.24, 0.09), F, 0, -0.09, 0.16, { mat: 'soft' }));          // squared muzzle
+    hp.push(p(roundedBox(0.26, 0.13, 0.12, 0.055), FL, 0, -0.10, 0.25, { mat: 'soft' }));        // pale snout bridge
+    hp.push(p(roundedBox(0.155, 0.105, 0.075, 0.042), P.nose, 0, -0.075, 0.325));                // bare rhinarium, matte
+    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', -0.043, -0.082, 0.356, { sz: 0.7 }));
+    hp.push(p(sphere(0.021, 6, 5), '#0f0c0a', 0.043, -0.082, 0.356, { sz: 0.7 }));
+    hp.push(p(roundedBox(0.10, 0.02, 0.03, 0.01), '#4a3f36', 0, -0.135, 0.30));                  // mouth line
     for (const sx of [-1, 1]) {
-      hp.push(p(sphere(0.085, 12, 9), F, sx * 0.2, 0.19, -0.04, { sz: 0.5, mat: 'soft' }));
-      hp.push(p(sphere(0.055, 8, 6), P.blush, sx * 0.208, 0.19, -0.015, { sz: 0.32, mat: 'soft' }));
+      hp.push(p(sphere(0.075, 12, 9), F, sx * 0.285, 0.105, -0.02, { sx: 0.85, sy: 0.9, sz: 0.55, rz: sx * 0.32, mat: 'soft' }));
+      hp.push(p(sphere(0.048, 8, 6), FD, sx * 0.30, 0.10, 0.008, { sx: 0.8, sy: 0.85, sz: 0.3, rz: sx * 0.32, mat: 'soft' }));
+      hp.push(p(sphere(0.055, 10, 8), FL, sx * 0.17, -0.02, 0.235, { sx: 0.9, sy: 0.7, sz: 0.5, mat: 'soft' }));   // cheek tufts
     }
     head.add(build(texBy(hp, HTEX, 3)));
     // 2D face card: eyes and mouth, swapped for expressions
     const faceMat = new THREE.MeshStandardMaterial({ map: FW.Pixel.faceTexture('neutral'), transparent: true, alphaTest: 0.35, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 1.95, HR * 1.95), faceMat);
-    face.position.set(0, 0.03, HR * 0.96); face.renderOrder = 2;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(HR * 2.25, HR * 0.70), faceMat);
+    face.position.set(0, 0.105, HR * 0.885); face.renderOrder = 2;
     head.add(face);
     // beanie
     const hat = new THREE.Group(); hat.position.set(0, 0.16, -0.03);

@@ -73,14 +73,16 @@ FW.Kitchen = class {
   build() {
     const V = FW.Models, P = FW.PAL, M = FW.Pixel.mat, S = this.scene, TOP = this.TOP;
     // --- light: window key, warm bounce, a lamp over the counter ---
-    const key = new THREE.DirectionalLight('#ffeccb', 2.7); key.position.set(-3.4, 4.6, 2.8); key.castShadow = true;
+    // Cozy kitchen: one warm window key, a cool sliver of rim, and the hanging
+    // lamp doing most of the work. Dim ambient so the room has real corners.
+    const key = new THREE.DirectionalLight('#ffdba6', 1.5); key.position.set(-3.4, 4.6, 2.8); key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     const sc = key.shadow.camera; sc.left = -4.2; sc.right = 4.2; sc.top = 3.2; sc.bottom = -2.6; sc.near = 1; sc.far = 15;
     key.shadow.bias = -0.0007; key.shadow.normalBias = 0.02; key.shadow.radius = 3;
     S.add(key, key.target);
-    S.add(new THREE.HemisphereLight('#dce8f5', '#8a7050', 0.42));
-    const rim = new THREE.DirectionalLight('#bcd8ff', 0.45); rim.position.set(2.8, 2.4, -3); S.add(rim);
-    this.lampLight = new THREE.PointLight('#ffb060', 2.4, 5.4, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
+    S.add(new THREE.HemisphereLight('#b9c9dc', '#6b5741', 0.22));
+    const rim = new THREE.DirectionalLight('#9dbde0', 0.26); rim.position.set(2.8, 2.4, -3); S.add(rim);
+    this.lampLight = new THREE.PointLight('#ffb268', 3.4, 6.2, 2); this.lampLight.position.set(0.1, 2.6, 0.6); S.add(this.lampLight);
 
     const texMat = (tex, opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ map: tex, roughness: 0.85, metalness: 0 }, opts));
     // painted, glazed, brushed and woven surfaces all come off the one atlas
@@ -339,7 +341,7 @@ FW.Kitchen = class {
     this.chef = V.hero({});
     this.chef.position.set(0.9, 0.48, -1.12); this.chef.scale.setScalar(1.5); S.add(this.chef);
     this.chefSq = new FW.Kart.Spring(1, 200, 12);
-    const chefKey = new THREE.PointLight('#fff2dc', 1.2, 2.8, 2); chefKey.position.set(0.9, 2.45, -0.55); S.add(chefKey);
+    const chefKey = new THREE.PointLight('#ffe2b8', 1.5, 3.2, 2); chefKey.position.set(0.85, 2.2, 0.15); S.add(chefKey);
 
     // the order tablet: this is where the ticket lives now
     const stand = V.build([
